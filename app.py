@@ -11,6 +11,14 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 st.set_page_config(page_title="Dashboard Profesional", layout="wide")
 
+# --- FUNCIONES DE FILTRO ---
+def clear_filters(columnas_df):
+    """Reinicia la selección de todos los filtros en el st.session_state."""
+    for col in columnas_df:
+        st.session_state[f"filter_{col}"] = st.session_state[f"all_values_{col}"]
+    st.info("Filtros limpiados. Recargando...")
+    st.rerun()
+
 # --- LECTURA DE USUARIOS ---
 try:
     usuarios_df = pd.read_excel(USUARIOS_EXCEL)
@@ -44,7 +52,6 @@ if not st.session_state.login:
             st.session_state.login = True
             st.session_state.rol = user_row.iloc[0]["Rol"]
             st.session_state.usuario = usuario_input.strip()
-            # CORRECCIÓN: Usar st.rerun()
             st.rerun()
         else:
             st.error("Usuario o contraseña incorrectos")
@@ -115,7 +122,6 @@ else:
         try:
             datos = pd.read_excel(MASTER_EXCEL)
         except FileNotFoundError:
-            # Estado de dashboard vacío
             st.info("⚠️ No hay datos disponibles para el dashboard. El administrador debe subir archivos.")
             st.stop()
         except Exception as e:
@@ -203,11 +209,17 @@ else:
                 st.error(f"Error al generar el gráfico. Verifica la combinación de ejes. Detalle: {e}")
 
 
-    # --- FILTROS AVANZADOS (MEJORADO: Agrupación por Raíz y Filtro por Contenido) ---
+    # --- FILTROS AVANZADOS (FINAL: Agrupación por Raíz y Limpieza Rápida) ---
     with tab4:
         st.title("🔎 Filtros Dinámicos Rigurosos")
         st.markdown("Utiliza las listas desplegables. Para columnas de texto (ej. Ubicación), las opciones muestran la **primera palabra** (la raíz, ej. 'Quito') y al seleccionar, **filtra todas** las entradas que contengan esa raíz.")
         
+        # Botón de Limpieza Global
+        if st.button("🧹 Limpiar TODOS los Filtros", on_click=clear_filters, args=(datos.columns.tolist(),), key="clear_all_filters"):
+            pass # La acción se maneja en la función on_click
+            
+        st.markdown("---")
+            
         datos_filtrados = datos.copy()
         
         with st.container():
@@ -225,82 +237,71 @@ else:
                     if col_index < num_columnas:
                         col = columnas_df[col_index]
                         
+                        # Definir las opciones de filtro (Raíz o Valor Único)
+                        valores_unicos = datos[col].unique()
+                        columna_es_texto = pd.api.types.is_object_dtype(datos[col]) or pd.api.types.is_string_dtype(datos[col])
+                        
+                        if columna_es_texto:
+                            opciones_raíz = set()
+                            for v in valores_unicos:
+                                if pd.notna(v) and isinstance(v, str):
+                                    raíz = v.strip().split(',')[0].strip().split(' ')[0]
+                                    opciones_raíz.add(raíz)
+                            opciones_filtro = sorted(list(opciones_raíz))
+                            opciones_filtro.append(" (Vacío / N/A)")
+                        else:
+                            opciones_filtro = [str(v) if pd.notna(v) else " (Vacío / N/A)" for v in valores_unicos]
+                            opciones_filtro = sorted(opciones_filtro)
+                            
+                        # Guardar el estado inicial (todos seleccionados) en la sesión
+                        # Esto permite que la función clear_filters lo reinicie
+                        if f"all_values_{col}" not in st.session_state:
+                            st.session_state[f"all_values_{col}"] = opciones_filtro
+
+                        # Inicializar o usar el estado de sesión actual para el multiselect
+                        if f"filter_{col}" not in st.session_state:
+                            st.session_state[f"filter_{col}"] = opciones_filtro
+                        
                         with cols[j]:
-                            # --- LÓGICA DE FILTRADO PARA LA COLUMNA ACTUAL ---
-                            try:
-                                # Prepara valores únicos como strings
-                                valores_unicos = datos[col].unique()
-                                columna_es_texto = pd.api.types.is_object_dtype(datos[col]) or pd.api.types.is_string_dtype(datos[col])
+                            # El desplegable de selección
+                            seleccion_str = st.multiselect(
+                                label=f"Filtro: {col} ({'Raíz' if columna_es_texto else 'Valor'})",
+                                options=opciones_filtro,
+                                default=st.session_state[f"filter_{col}"],
+                                key=f"filter_{col}" # La clave que se manipula
+                            )
+                            
+                            # --- APLICACIÓN DEL FILTRO ---
+                            if seleccion_str and len(seleccion_str) < len(opciones_filtro):
+                                
+                                filtrar_nans = " (Vacío / N/A)" in seleccion_str
+                                items_a_filtrar = [r for r in seleccion_str if r != " (Vacío / N/A)"]
                                 
                                 if columna_es_texto:
-                                    # Generar las opciones de filtro (la "raíz" del texto)
-                                    opciones_raíz = set()
-                                    for v in valores_unicos:
-                                        if pd.notna(v) and isinstance(v, str):
-                                            # Extrae la primera palabra (la raíz)
-                                            raíz = v.strip().split(',')[0].strip().split(' ')[0]
-                                            opciones_raíz.add(raíz)
-                                    opciones_filtro = sorted(list(opciones_raíz))
-                                    opciones_filtro.append(" (Vacío / N/A)")
+                                    # Lógica de Raíz (Filtro por Contenido)
+                                    filtro_final = pd.Series([False] * len(datos_filtrados), index=datos_filtrados.index)
                                     
-                                    # El desplegable de selección
-                                    seleccion_str = st.multiselect(
-                                        label=f"Filtro: {col} (Raíz)",
-                                        options=opciones_filtro,
-                                        default=opciones_filtro, 
-                                        key=f"filter_{col}"
-                                    )
+                                    if items_a_filtrar:
+                                        for raíz in items_a_filtrar:
+                                            mascara_raíz = datos_filtrados[col].astype(str).str.contains(raíz, case=False, na=False)
+                                            filtro_final = filtro_final | mascara_raíz
                                     
-                                    if seleccion_str and len(seleccion_str) < len(opciones_filtro):
+                                    if filtrar_nans:
+                                        filtro_final = filtro_final | datos_filtrados[col].isna()
                                         
-                                        # 1. Manejar NaNs (Vacío)
-                                        filtrar_nans = " (Vacío / N/A)" in seleccion_str
-                                        
-                                        # 2. Obtener las raíces a buscar
-                                        raíces_a_buscar = [r for r in seleccion_str if r != " (Vacío / N/A)"]
-                                        
-                                        # 3. Aplicar el filtro de CONTENIDO (lo que pediste)
-                                        # Crear una máscara booleana inicial
-                                        filtro_final = pd.Series([False] * len(datos_filtrados), index=datos_filtrados.index)
-                                        
-                                        if raíces_a_buscar:
-                                            # Genera la máscara buscando cada raíz como subcadena (ej. "Quito" está en "Quito, San Roque")
-                                            for raíz in raíces_a_buscar:
-                                                mascara_raíz = datos_filtrados[col].astype(str).str.contains(raíz, case=False, na=False)
-                                                filtro_final = filtro_final | mascara_raíz # Lógica OR entre las raíces
-                                        
-                                        if filtrar_nans:
-                                            # Incluir las filas que son NaN
-                                            filtro_final = filtro_final | datos_filtrados[col].isna()
-                                        
-                                        datos_filtrados = datos_filtrados[filtro_final]
-
-
-                                # --- Lógica de Multiselect simple (para Numéricos/Fechas) ---
+                                    datos_filtrados = datos_filtrados[filtro_final]
+                                    
                                 else:
-                                    # Para numéricos o fechas, usamos el multiselect tradicional
-                                    valores_unicos_str = [str(v) if pd.notna(v) else " (Vacío / N/A)" for v in valores_unicos]
-                                    seleccion_str = st.multiselect(
-                                        label=f"Filtro: {col}",
-                                        options=valores_unicos_str,
-                                        default=valores_unicos_str, 
-                                        key=f"filter_{col}_simple"
-                                    )
+                                    # Lógica de Valor Único (Filtro Tradicional)
+                                    filtro_principal = datos_filtrados[col].astype(str).isin(items_a_filtrar)
                                     
-                                    if seleccion_str and len(seleccion_str) < len(valores_unicos_str):
-                                        filtrar_nans = " (Vacío / N/A)" in seleccion_str
-                                        valores_a_filtrar_str = [v for v in seleccion_str if v != " (Vacío / N/A)"]
-                                        
-                                        filtro_principal = datos_filtrados[col].astype(str).isin(valores_a_filtrar_str)
-                                        
-                                        if filtrar_nans:
-                                            datos_filtrados = datos_filtrados[filtro_principal | datos_filtrados[col].isna()]
-                                        else:
-                                            datos_filtrados = datos_filtrados[filtro_principal]
+                                    if filtrar_nans:
+                                        datos_filtrados = datos_filtrados[filtro_principal | datos_filtrados[col].isna()]
+                                    else:
+                                        datos_filtrados = datos_filtrados[filtro_principal]
 
 
-                            except Exception as e:
-                                st.error(f"Error al configurar filtro de columna '{col}'. Detalle: {e}")
+                            # Si la selección es igual a las opciones_filtro, no se filtra (todos seleccionados)
                                 
         st.markdown("---")
         st.subheader(f"Vista Filtrada ({len(datos_filtrados)} de {len(datos)} registros)")
