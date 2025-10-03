@@ -44,6 +44,7 @@ if not st.session_state.login:
             st.session_state.login = True
             st.session_state.rol = user_row.iloc[0]["Rol"]
             st.session_state.usuario = usuario_input.strip()
+            # CORRECCIÓN: Usar st.rerun()
             st.rerun()
         else:
             st.error("Usuario o contraseña incorrectos")
@@ -52,7 +53,7 @@ else:
     st.sidebar.success(f"Bienvenido {st.session_state.usuario} ({st.session_state.rol})")
     st.sidebar.button("Cerrar sesión", on_click=lambda: st.session_state.update({"login": False, "rol": None}), key="logout_btn")
 
-    # --- ADMIN: SUBIR / ELIMINAR EXCELS ---
+    # --- ADMIN: SUBIR / ELIMINAR EXCELS (MEJORADO) ---
     if st.session_state.rol.lower() == "admin":
         st.sidebar.header("⚙️ Administración")
         
@@ -64,7 +65,7 @@ else:
                 with open(save_path, "wb") as file:
                     file.write(f.getbuffer())
             st.sidebar.success(f"{len(nuevos_archivos)} archivos guardados")
-            st.rerun() # Rerun para consolidar datos inmediatamente
+            st.rerun() 
 
         archivos_actuales = os.listdir(UPLOAD_FOLDER)
         st.sidebar.markdown("---")
@@ -80,7 +81,7 @@ else:
             else:
                  st.sidebar.info("No seleccionaste archivos para eliminar.")
         
-        # ⬇️ NUEVA FUNCIONALIDAD: ELIMINAR TODOS Y VACIAR DASHBOARD
+        # ELIMINAR TODOS Y VACIAR DASHBOARD
         st.sidebar.markdown("---")
         if archivos_actuales and st.sidebar.button("🔴 Eliminar TODOS los archivos", key="del_all"):
             archivos_eliminados_count = len(archivos_actuales)
@@ -89,7 +90,7 @@ else:
             for f in archivos_actuales:
                 os.remove(os.path.join(UPLOAD_FOLDER, f))
             
-            # 2. Eliminar el archivo maestro consolidado para garantizar un dashboard vacío
+            # 2. Eliminar el archivo maestro consolidado
             if os.path.exists(MASTER_EXCEL):
                 os.remove(MASTER_EXCEL)
             
@@ -97,8 +98,7 @@ else:
             st.rerun()
         elif not archivos_actuales:
              st.sidebar.info("La carpeta de subidas está vacía.")
-        # ⬆️ FIN NUEVA FUNCIONALIDAD
-
+        # -------------------------------------------------------------
 
     # --- CARGAR DATOS ---
     archivos_para_combinar = [os.path.join(UPLOAD_FOLDER, f) for f in os.listdir(UPLOAD_FOLDER)]
@@ -112,11 +112,10 @@ else:
             st.error(f"Error al combinar o leer archivos de la carpeta de subidas: {e}")
             st.stop()
     else:
-        # Intenta cargar el master solo si no hay archivos en UPLOAD_FOLDER
         try:
             datos = pd.read_excel(MASTER_EXCEL)
         except FileNotFoundError:
-            # Esto es lo que se mostrará cuando se eliminen todos los archivos
+            # Estado de dashboard vacío
             st.info("⚠️ No hay datos disponibles para el dashboard. El administrador debe subir archivos.")
             st.stop()
         except Exception as e:
@@ -204,21 +203,109 @@ else:
                 st.error(f"Error al generar el gráfico. Verifica la combinación de ejes. Detalle: {e}")
 
 
-    # --- FILTROS AVANZADOS ---
+    # --- FILTROS AVANZADOS (MEJORADO: Agrupación por Raíz y Filtro por Contenido) ---
     with tab4:
-        st.subheader("Filtros dinámicos")
+        st.title("🔎 Filtros Dinámicos Rigurosos")
+        st.markdown("Utiliza las listas desplegables. Para columnas de texto (ej. Ubicación), las opciones muestran la **primera palabra** (la raíz, ej. 'Quito') y al seleccionar, **filtra todas** las entradas que contengan esa raíz.")
+        
         datos_filtrados = datos.copy()
         
-        with st.expander("Selecciona los filtros por columna"):
-            for col in datos.columns:
-                try:
-                    valores = datos[col].dropna().unique().tolist()
-                    if len(valores) <= 50:
-                        seleccion = st.multiselect(f"Filtrar {col}", valores, default=valores, key=f"filter_{col}")
-                        if seleccion:
-                            datos_filtrados = datos_filtrados[datos_filtrados[col].isin(seleccion)]
-                except TypeError:
-                    st.warning(f"No se pudo aplicar el filtro a la columna '{col}' debido a tipos de datos complejos.")
+        with st.container():
+            
+            cols_per_row = 3
+            columnas_df = datos.columns.tolist()
+            num_columnas = len(columnas_df)
+            
+            for i in range(0, num_columnas, cols_per_row):
+                cols = st.columns(cols_per_row) 
+                
+                for j in range(cols_per_row):
+                    col_index = i + j
                     
-        st.subheader("Resultado Filtrado")
-        st.dataframe(datos_filtrados, use_container_width=True)
+                    if col_index < num_columnas:
+                        col = columnas_df[col_index]
+                        
+                        with cols[j]:
+                            # --- LÓGICA DE FILTRADO PARA LA COLUMNA ACTUAL ---
+                            try:
+                                # Prepara valores únicos como strings
+                                valores_unicos = datos[col].unique()
+                                columna_es_texto = pd.api.types.is_object_dtype(datos[col]) or pd.api.types.is_string_dtype(datos[col])
+                                
+                                if columna_es_texto:
+                                    # Generar las opciones de filtro (la "raíz" del texto)
+                                    opciones_raíz = set()
+                                    for v in valores_unicos:
+                                        if pd.notna(v) and isinstance(v, str):
+                                            # Extrae la primera palabra (la raíz)
+                                            raíz = v.strip().split(',')[0].strip().split(' ')[0]
+                                            opciones_raíz.add(raíz)
+                                    opciones_filtro = sorted(list(opciones_raíz))
+                                    opciones_filtro.append(" (Vacío / N/A)")
+                                    
+                                    # El desplegable de selección
+                                    seleccion_str = st.multiselect(
+                                        label=f"Filtro: {col} (Raíz)",
+                                        options=opciones_filtro,
+                                        default=opciones_filtro, 
+                                        key=f"filter_{col}"
+                                    )
+                                    
+                                    if seleccion_str and len(seleccion_str) < len(opciones_filtro):
+                                        
+                                        # 1. Manejar NaNs (Vacío)
+                                        filtrar_nans = " (Vacío / N/A)" in seleccion_str
+                                        
+                                        # 2. Obtener las raíces a buscar
+                                        raíces_a_buscar = [r for r in seleccion_str if r != " (Vacío / N/A)"]
+                                        
+                                        # 3. Aplicar el filtro de CONTENIDO (lo que pediste)
+                                        # Crear una máscara booleana inicial
+                                        filtro_final = pd.Series([False] * len(datos_filtrados), index=datos_filtrados.index)
+                                        
+                                        if raíces_a_buscar:
+                                            # Genera la máscara buscando cada raíz como subcadena (ej. "Quito" está en "Quito, San Roque")
+                                            for raíz in raíces_a_buscar:
+                                                mascara_raíz = datos_filtrados[col].astype(str).str.contains(raíz, case=False, na=False)
+                                                filtro_final = filtro_final | mascara_raíz # Lógica OR entre las raíces
+                                        
+                                        if filtrar_nans:
+                                            # Incluir las filas que son NaN
+                                            filtro_final = filtro_final | datos_filtrados[col].isna()
+                                        
+                                        datos_filtrados = datos_filtrados[filtro_final]
+
+
+                                # --- Lógica de Multiselect simple (para Numéricos/Fechas) ---
+                                else:
+                                    # Para numéricos o fechas, usamos el multiselect tradicional
+                                    valores_unicos_str = [str(v) if pd.notna(v) else " (Vacío / N/A)" for v in valores_unicos]
+                                    seleccion_str = st.multiselect(
+                                        label=f"Filtro: {col}",
+                                        options=valores_unicos_str,
+                                        default=valores_unicos_str, 
+                                        key=f"filter_{col}_simple"
+                                    )
+                                    
+                                    if seleccion_str and len(seleccion_str) < len(valores_unicos_str):
+                                        filtrar_nans = " (Vacío / N/A)" in seleccion_str
+                                        valores_a_filtrar_str = [v for v in seleccion_str if v != " (Vacío / N/A)"]
+                                        
+                                        filtro_principal = datos_filtrados[col].astype(str).isin(valores_a_filtrar_str)
+                                        
+                                        if filtrar_nans:
+                                            datos_filtrados = datos_filtrados[filtro_principal | datos_filtrados[col].isna()]
+                                        else:
+                                            datos_filtrados = datos_filtrados[filtro_principal]
+
+
+                            except Exception as e:
+                                st.error(f"Error al configurar filtro de columna '{col}'. Detalle: {e}")
+                                
+        st.markdown("---")
+        st.subheader(f"Vista Filtrada ({len(datos_filtrados)} de {len(datos)} registros)")
+        
+        if datos_filtrados.empty:
+            st.warning("No hay registros que coincidan con la selección de filtros.")
+        else:
+            st.dataframe(datos_filtrados, use_container_width=True)
