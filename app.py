@@ -249,7 +249,9 @@ else:
                             opciones_raíz = set()
                             for v in valores_unicos:
                                 if pd.notna(v) and isinstance(v, str):
-                                    raíz = v.strip().split(',')[0].strip().split(' ')[0]
+                                    # CORRECCIÓN: Toma todo antes de la primera coma, o toda la cadena.
+                                    # Esto permite que "El Carmén" quede como "El Carmén".
+                                    raíz = v.strip().split(',')[0].strip() 
                                     opciones_raíz.add(raíz)
                             opciones_filtro = sorted(list(opciones_raíz))
                             opciones_filtro.append(" (Vacío / N/A)")
