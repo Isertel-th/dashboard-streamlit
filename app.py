@@ -59,15 +59,24 @@ if not st.session_state.login:
             st.error("Usuario o contraseña incorrectos")
 
 else:
+    # --- CONTEO DE ARCHIVOS CARGADOS ---
+    archivos_para_combinar = [f for f in os.listdir(UPLOAD_FOLDER) if f.endswith('.xlsx') or f.endswith('.xls')]
+    num_archivos_cargados = len(archivos_para_combinar)
+    
     st.sidebar.success(f"Bienvenido {st.session_state.usuario} ({st.session_state.rol})")
     st.sidebar.button("Cerrar sesión", on_click=lambda: st.session_state.update({"login": False, "rol": None}), key="logout_btn")
+    
+    # MENÚ CONTEXTUAL DE CONTEO DE ARCHIVOS
+    if num_archivos_cargados > 0:
+        st.sidebar.info(f"💾 **{num_archivos_cargados}** archivo(s) Excel cargado(s) y combinado(s).")
+    else:
+        st.sidebar.warning("⚠️ No hay archivos Excel cargados.")
 
     # --- ADMIN: SUBIR / ELIMINAR EXCELS (MEJORADO) ---
     if st.session_state.rol.lower() == "admin":
         st.sidebar.header("⚙️ Administración")
         
         # SUBIR ARCHIVOS
-        # PERMITE SUBIR MULTIPLES ARCHIVOS
         nuevos_archivos = st.sidebar.file_uploader("Subir archivos Excel", type="xlsx", accept_multiple_files=True)
         if nuevos_archivos:
             for f in nuevos_archivos:
@@ -80,7 +89,7 @@ else:
         archivos_actuales = os.listdir(UPLOAD_FOLDER)
         st.sidebar.markdown("---")
 
-        # ELIMINAR SELECCIONADOS (Permite 1, 2, 4, o cualquier cantidad)
+        # ELIMINAR SELECCIONADOS
         eliminar = st.sidebar.multiselect("Selecciona archivos a eliminar", archivos_actuales)
         if st.sidebar.button("🗑️ Eliminar seleccionados", key="del_selected"):
             if eliminar:
@@ -111,12 +120,12 @@ else:
         # -------------------------------------------------------------
 
     # --- CARGAR DATOS (FUSIÓN ESTADÍSTICA) ---
-    archivos_para_combinar = [os.path.join(UPLOAD_FOLDER, f) for f in os.listdir(UPLOAD_FOLDER)]
     datos = None
-    if archivos_para_combinar:
+    if archivos_para_combinar: # Usa la lista ya contada arriba
+        archivos_completos = [os.path.join(UPLOAD_FOLDER, f) for f in archivos_para_combinar]
         try:
             # LECTURA Y CONCATENACIÓN (FUSIÓN) DE MÚLTIPLES ARCHIVOS
-            df_list = [pd.read_excel(f) for f in archivos_para_combinar]
+            df_list = [pd.read_excel(f) for f in archivos_completos]
             datos = pd.concat(df_list, ignore_index=True)
             datos.to_excel(MASTER_EXCEL, index=False)
         except Exception as e:
@@ -126,6 +135,7 @@ else:
         try:
             datos = pd.read_excel(MASTER_EXCEL)
         except FileNotFoundError:
+            # Si no hay archivos en la carpeta de subidas y no hay maestro, advertir.
             st.info("⚠️ No hay datos disponibles para el dashboard. El administrador debe subir archivos.")
             st.stop()
         except Exception as e:
