@@ -15,10 +15,8 @@ st.set_page_config(page_title="Dashboard Profesional", layout="wide")
 def clear_filters(columnas_df):
     """
     Reinicia la selección de todos los filtros en el st.session_state a una lista vacía ([]).
-    Esto hace que los multiselects muestren "Choose options" al recargarse.
     """
     for col in columnas_df:
-        # Establece el valor de la clave de sesión del filtro a una lista vacía
         st.session_state[f"filter_{col}"] = []
         
 # --- LECTURA DE USUARIOS ---
@@ -60,8 +58,8 @@ if not st.session_state.login:
 
 else:
     # --- CONTEO DE ARCHIVOS CARGADOS ---
-    archivos_para_combinar = [f for f in os.listdir(UPLOAD_FOLDER) if f.endswith('.xlsx') or f.endswith('.xls')]
-    num_archivos_cargados = len(archivos_para_combinar)
+    archivos_para_combinar_nombres = [f for f in os.listdir(UPLOAD_FOLDER) if f.endswith('.xlsx') or f.endswith('.xls')]
+    num_archivos_cargados = len(archivos_para_combinar_nombres)
     
     st.sidebar.success(f"Bienvenido {st.session_state.usuario} ({st.session_state.rol})")
     st.sidebar.button("Cerrar sesión", on_click=lambda: st.session_state.update({"login": False, "rol": None}), key="logout_btn")
@@ -72,7 +70,7 @@ else:
     else:
         st.sidebar.warning("⚠️ No hay archivos Excel cargados.")
 
-    # --- ADMIN: SUBIR / ELIMINAR EXCELS (MEJORADO) ---
+    # --- ADMIN: SUBIR / ELIMINAR EXCELS ---
     if st.session_state.rol.lower() == "admin":
         st.sidebar.header("⚙️ Administración")
         
@@ -105,11 +103,9 @@ else:
         if archivos_actuales and st.sidebar.button("🔴 Eliminar TODOS los archivos", key="del_all"):
             archivos_eliminados_count = len(archivos_actuales)
             
-            # 1. Eliminar todos los archivos de la carpeta de subidas
             for f in archivos_actuales:
                 os.remove(os.path.join(UPLOAD_FOLDER, f))
             
-            # 2. Eliminar el archivo maestro consolidado
             if os.path.exists(MASTER_EXCEL):
                 os.remove(MASTER_EXCEL)
             
@@ -121,10 +117,9 @@ else:
 
     # --- CARGAR DATOS (FUSIÓN ESTADÍSTICA) ---
     datos = None
-    if archivos_para_combinar: # Usa la lista ya contada arriba
-        archivos_completos = [os.path.join(UPLOAD_FOLDER, f) for f in archivos_para_combinar]
+    if archivos_para_combinar_nombres: 
+        archivos_completos = [os.path.join(UPLOAD_FOLDER, f) for f in archivos_para_combinar_nombres]
         try:
-            # LECTURA Y CONCATENACIÓN (FUSIÓN) DE MÚLTIPLES ARCHIVOS
             df_list = [pd.read_excel(f) for f in archivos_completos]
             datos = pd.concat(df_list, ignore_index=True)
             datos.to_excel(MASTER_EXCEL, index=False)
@@ -135,7 +130,6 @@ else:
         try:
             datos = pd.read_excel(MASTER_EXCEL)
         except FileNotFoundError:
-            # Si no hay archivos en la carpeta de subidas y no hay maestro, advertir.
             st.info("⚠️ No hay datos disponibles para el dashboard. El administrador debe subir archivos.")
             st.stop()
         except Exception as e:
@@ -145,6 +139,9 @@ else:
     if datos is None or datos.empty:
         st.warning("No hay datos para mostrar.")
         st.stop()
+    
+    # Se genera una copia del dataframe original para los filtros avanzados
+    datos_base = datos.copy()
 
     # --- MENU DE PESTAÑAS ---
     tab1, tab2, tab3, tab4 = st.tabs(["📄 Datos", "📈 KPIs", "📊 Gráficos", "🔎 Filtros Avanzados"])
@@ -152,12 +149,12 @@ else:
     # --- TABLA DE DATOS ---
     with tab1:
         st.subheader("Vista de datos")
-        st.dataframe(datos, use_container_width=True)
+        st.dataframe(datos_base, use_container_width=True)
 
     # --- KPIs ---
     with tab2:
         st.subheader("Indicadores clave")
-        num_cols = datos.select_dtypes(include='number').columns.tolist()
+        num_cols = datos_base.select_dtypes(include='number').columns.tolist()
         if num_cols:
             display_cols = num_cols[:4] if len(num_cols) > 4 else num_cols
             kpi_cols = st.columns(len(display_cols))
@@ -166,15 +163,15 @@ else:
                 with kpi_cols[i]:
                     st.metric(
                         label=f"{col} - Total",
-                        value=f"{datos[col].sum():,.0f}"
+                        value=f"{datos_base[col].sum():,.0f}"
                     )
                     st.metric(
                         label=f"{col} - Promedio",
-                        value=f"{datos[col].mean():,.2f}"
+                        value=f"{datos_base[col].mean():,.2f}"
                     )
                     st.metric(
                         label=f"{col} - Máx",
-                        value=f"{datos[col].max():,.0f}"
+                        value=f"{datos_base[col].max():,.0f}"
                     )
         else:
             st.info("No se encontraron columnas numéricas para calcular KPIs.")
@@ -182,13 +179,13 @@ else:
     # --- GRAFICOS ---
     with tab3:
         st.subheader("Generador de gráficos")
-        columnas = datos.columns.tolist()
+        columnas = datos_base.columns.tolist()
         
         col_chart, col_data = st.columns([1, 1])
         with col_chart:
             tipo_grafico = st.selectbox("Tipo de gráfico", ["Barras", "Pastel", "Líneas", "Scatter", "Box", "Área", "Histograma"])
         
-        columnas_numericas = [c for c in columnas if pd.api.types.is_numeric_dtype(datos[c])]
+        columnas_numericas = [c for c in columnas if pd.api.types.is_numeric_dtype(datos_base[c])]
         
         with col_data:
             x_col = st.selectbox("Eje X", columnas)
@@ -203,19 +200,19 @@ else:
         else:
             try:
                 if tipo_grafico == "Barras":
-                    fig = px.bar(datos, x=x_col, y=y_col, color=color_col)
+                    fig = px.bar(datos_base, x=x_col, y=y_col, color=color_col)
                 elif tipo_grafico == "Pastel":
-                    fig = px.pie(datos, names=x_col, values=y_col, color=color_col)
+                    fig = px.pie(datos_base, names=x_col, values=y_col, color=color_col)
                 elif tipo_grafico == "Líneas":
-                    fig = px.line(datos, x=x_col, y=y_col, color=color_col)
+                    fig = px.line(datos_base, x=x_col, y=y_col, color=color_col)
                 elif tipo_grafico == "Scatter":
-                    fig = px.scatter(datos, x=x_col, y=y_col, color=color_col)
+                    fig = px.scatter(datos_base, x=x_col, y=y_col, color=color_col)
                 elif tipo_grafico == "Box":
-                    fig = px.box(datos, x=x_col, y=y_col, color=color_col)
+                    fig = px.box(datos_base, x=x_col, y=y_col, color=color_col)
                 elif tipo_grafico == "Área":
-                    fig = px.area(datos, x=x_col, y=y_col, color=color_col)
+                    fig = px.area(datos_base, x=x_col, y=y_col, color=color_col)
                 elif tipo_grafico == "Histograma":
-                    fig = px.histogram(datos, x=x_col, y=y_col, color=color_col)
+                    fig = px.histogram(datos_base, x=x_col, y=y_col, color=color_col)
 
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
@@ -223,11 +220,13 @@ else:
                 st.error(f"Error al generar el gráfico. Verifica la combinación de ejes. Detalle: {e}")
 
 
-    # --- FILTROS AVANZADOS ---
+    # ----------------------------------------------------------------------
+    # --- FILTROS AVANZADOS (Filtros Dinámicos / en Cascada) ---
+    # ----------------------------------------------------------------------
     with tab4:
         st.title("🔎 Filtros Dinámicos Rigurosos")
         
-        columnas_df = datos.columns.tolist()
+        columnas_df = datos_base.columns.tolist()
         
         # --- SECCIÓN DE CONTROL DE VISIBILIDAD ---
         col_clean, col_hide = st.columns([1, 2])
@@ -239,7 +238,6 @@ else:
                     key="clear_all_filters")
 
         with col_hide:
-            # Selector de columnas a ocultar
             columnas_a_ocultar = st.multiselect(
                 "👁️ Columnas a ocultar (se oculta el filtro y la columna en la tabla)",
                 options=columnas_df,
@@ -249,7 +247,8 @@ else:
             
         st.markdown("---")
             
-        datos_filtrados = datos.copy()
+        # Inicia el DataFrame filtrado con la copia del maestro
+        datos_filtrados = datos_base.copy()
         
         # Las columnas que REALMENTE se van a filtrar y mostrar
         columnas_visibles = [col for col in columnas_df if col not in columnas_a_ocultar]
@@ -266,17 +265,20 @@ else:
                     col_index = i + j
                     
                     if col_index < num_columnas_visibles:
-                        col = columnas_visibles[col_index] # Solo iteramos sobre las visibles
+                        col = columnas_visibles[col_index] 
                         
-                        # --- PREPARACIÓN DE OPCIONES ---
-                        valores_unicos = datos[col].unique()
-                        columna_es_texto = pd.api.types.is_object_dtype(datos[col]) or pd.api.types.is_string_dtype(datos[col])
+                        # IMPORTANTE: Los valores únicos ahora se calculan sobre el DataFrame YA FILTRADO
+                        # por los filtros anteriores.
+                        df_para_opciones = datos_filtrados.copy()
+                        
+                        # --- PREPARACIÓN DE OPCIONES DINÁMICAS ---
+                        valores_unicos = df_para_opciones[col].unique()
+                        columna_es_texto = pd.api.types.is_object_dtype(df_para_opciones[col]) or pd.api.types.is_string_dtype(df_para_opciones[col])
                         
                         if columna_es_texto:
                             opciones_raíz = set()
                             for v in valores_unicos:
                                 if pd.notna(v) and isinstance(v, str):
-                                    # Lógica de Raíz Corregida
                                     raíz = v.strip().split(',')[0].strip() 
                                     opciones_raíz.add(raíz)
                             opciones_filtro = sorted(list(opciones_raíz))
@@ -298,7 +300,8 @@ else:
                                 key=f"filter_{col}"
                             )
                             
-                            # --- APLICACIÓN DEL FILTRO ---
+                            # --- APLICACIÓN DEL FILTRO (ACTUALIZA datos_filtrados) ---
+                            # El resultado de este filtro será la base para el siguiente filtro en el bucle.
                             if seleccion_str:
                                 
                                 filtrar_nans = " (Vacío / N/A)" in seleccion_str
@@ -329,7 +332,7 @@ else:
 
         
         st.markdown("---")
-        st.subheader(f"Vista Filtrada ({len(datos_filtrados)} de {len(datos)} registros)")
+        st.subheader(f"Vista Filtrada ({len(datos_filtrados)} de {len(datos_base)} registros)")
         
         if datos_filtrados.empty:
             st.warning("No hay registros que coincidan con la selección de filtros.")
