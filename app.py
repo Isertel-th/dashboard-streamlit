@@ -214,32 +214,48 @@ else:
     # --- FILTROS AVANZADOS (FINAL: Agrupación por Raíz y Limpieza Rápida) ---
     with tab4:
         st.title("🔎 Filtros Dinámicos Rigurosos")
-        st.markdown("Utiliza las listas desplegables. Para columnas de texto (ej. Ubicación), las opciones muestran la **primera palabra** (la raíz, ej. 'Quito') y al seleccionar, **filtra todas** las entradas que contengan esa raíz.")
         
-        # Botón de Limpieza Global
-        st.button("🧹 Limpiar TODOS los Filtros", 
-                  on_click=clear_filters, 
-                  args=(datos.columns.tolist(),), 
-                  key="clear_all_filters")
+        columnas_df = datos.columns.tolist()
+        
+        # --- SECCIÓN DE CONTROL DE VISIBILIDAD ---
+        # Usamos una columna para el botón de limpieza y el selector de ocultar
+        col_clean, col_hide = st.columns([1, 2])
+        
+        with col_clean:
+            st.button("🧹 Limpiar TODOS los Filtros", 
+                    on_click=clear_filters, 
+                    args=(columnas_df,), 
+                    key="clear_all_filters")
+
+        with col_hide:
+            # Selector de columnas a ocultar (el "ojo")
+            columnas_a_ocultar = st.multiselect(
+                "👁️ Columnas a ocultar (se oculta el filtro y la columna en la tabla)",
+                options=columnas_df,
+                default=[],
+                key="hidden_columns_selector"
+            )
             
         st.markdown("---")
             
         datos_filtrados = datos.copy()
         
+        # Las columnas que REALMENTE se van a filtrar y mostrar
+        columnas_visibles = [col for col in columnas_df if col not in columnas_a_ocultar]
+
         with st.container():
             
             cols_per_row = 3
-            columnas_df = datos.columns.tolist()
-            num_columnas = len(columnas_df)
+            num_columnas_visibles = len(columnas_visibles)
             
-            for i in range(0, num_columnas, cols_per_row):
+            for i in range(0, num_columnas_visibles, cols_per_row):
                 cols = st.columns(cols_per_row) 
                 
                 for j in range(cols_per_row):
                     col_index = i + j
                     
-                    if col_index < num_columnas:
-                        col = columnas_df[col_index]
+                    if col_index < num_columnas_visibles:
+                        col = columnas_visibles[col_index] # Solo iteramos sobre las visibles
                         
                         # --- PREPARACIÓN DE OPCIONES ---
                         valores_unicos = datos[col].unique()
@@ -249,8 +265,7 @@ else:
                             opciones_raíz = set()
                             for v in valores_unicos:
                                 if pd.notna(v) and isinstance(v, str):
-                                    # CORRECCIÓN: Toma todo antes de la primera coma, o toda la cadena.
-                                    # Esto permite que "El Carmén" quede como "El Carmén".
+                                    # Lógica de Raíz Corregida
                                     raíz = v.strip().split(',')[0].strip() 
                                     opciones_raíz.add(raíz)
                             opciones_filtro = sorted(list(opciones_raíz))
@@ -260,7 +275,6 @@ else:
                             opciones_filtro = sorted(opciones_filtro)
                             
                         # --- MANEJO DEL ESTADO DE SESIÓN ---
-                        # Inicializar el estado de sesión del filtro a una lista vacía si es la primera vez
                         if f"filter_{col}" not in st.session_state:
                             st.session_state[f"filter_{col}"] = []
                         
@@ -269,13 +283,11 @@ else:
                             seleccion_str = st.multiselect(
                                 label=f"Filtro: {col} ({'Raíz' if columna_es_texto else 'Valor'})",
                                 options=opciones_filtro,
-                                # Usar el estado de sesión como valor por defecto (será [] al inicio o después de limpiar)
                                 default=st.session_state[f"filter_{col}"],
-                                key=f"filter_{col}" # La clave que se manipula
+                                key=f"filter_{col}"
                             )
                             
                             # --- APLICACIÓN DEL FILTRO ---
-                            # Solo filtramos si hay algo seleccionado (len > 0)
                             if seleccion_str:
                                 
                                 filtrar_nans = " (Vacío / N/A)" in seleccion_str
@@ -287,9 +299,8 @@ else:
                                     
                                     if items_a_filtrar:
                                         for raíz in items_a_filtrar:
-                                            # Buscamos que la raíz esté contenida en el valor
                                             mascara_raíz = datos_filtrados[col].astype(str).str.contains(raíz, case=False, na=False)
-                                            filtro_final = filtro_final | mascara_raíz # Lógica OR entre las raíces
+                                            filtro_final = filtro_final | mascara_raíz
                                     
                                     if filtrar_nans:
                                         filtro_final = filtro_final | datos_filtrados[col].isna()
@@ -305,12 +316,12 @@ else:
                                     else:
                                         datos_filtrados = datos_filtrados[filtro_principal]
 
-                            # Si 'seleccion_str' está vacío ([]), no se filtra, manteniendo 'datos_filtrados' intacto hasta el siguiente filtro.
-                                
+        
         st.markdown("---")
         st.subheader(f"Vista Filtrada ({len(datos_filtrados)} de {len(datos)} registros)")
         
         if datos_filtrados.empty:
             st.warning("No hay registros que coincidan con la selección de filtros.")
         else:
-            st.dataframe(datos_filtrados, use_container_width=True)
+            # Mostrar solo las columnas que no fueron seleccionadas para ocultar
+            st.dataframe(datos_filtrados[columnas_visibles], use_container_width=True)
