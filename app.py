@@ -140,8 +140,64 @@ else:
         st.warning("No hay datos para mostrar.")
         st.stop()
     
-    # Se genera una copia del dataframe original para los filtros avanzados
     datos_base = datos.copy()
+    
+    # --------------------------------------------------------------------------
+    # --- CONFIGURACIÓN DE FECHA BASE DINÁMICA ---
+    # --------------------------------------------------------------------------
+    
+    # 1. Identificar columnas candidatas a fecha
+    columnas_candidatas_fecha = []
+    # Heurística: columnas que contienen 'fecha', 'date', o que son de tipo datetime
+    for col in datos_base.columns:
+        if pd.api.types.is_datetime64_any_dtype(datos_base[col]):
+            columnas_candidatas_fecha.append(col)
+        elif 'fecha' in str(col).lower() or 'date' in str(col).lower():
+            columnas_candidatas_fecha.append(col)
+            
+    columnas_candidatas_fecha = sorted(list(set(columnas_candidatas_fecha)))
+
+    COLUMNA_FECHA_BASE = None
+    nuevas_cols_tiempo = []
+    
+    # Sección de selección de fecha (antes de las pestañas)
+    if columnas_candidatas_fecha:
+        st.subheader("🗓️ Configuración de Análisis de Tiempo")
+        COLUMNA_FECHA_BASE = st.selectbox(
+            "Selecciona la **Fecha Base** para el análisis por Mes/Semana/Día:",
+            options=[None] + columnas_candidatas_fecha,
+            index=1 if columnas_candidatas_fecha else 0,
+            key="fecha_base_selector"
+        )
+        st.markdown("---")
+
+    # --------------------------------------------------------------------------
+    # --- CREACIÓN DE COLUMNAS DE TIEMPO (DINÁMICO) ---
+    # --------------------------------------------------------------------------
+    if COLUMNA_FECHA_BASE and COLUMNA_FECHA_BASE in datos_base.columns:
+        try:
+            # Convertir la columna seleccionada a datetime
+            datos_base[COLUMNA_FECHA_BASE] = pd.to_datetime(datos_base[COLUMNA_FECHA_BASE], errors='coerce')
+            
+            # Crear 'Día de la Semana'
+            datos_base['Día de la Semana'] = datos_base[COLUMNA_FECHA_BASE].dt.dayofweek.map({
+                0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves',
+                4: 'Viernes', 5: 'Sábado', 6: 'Domingo'
+            })
+            nuevas_cols_tiempo.append('Día de la Semana')
+            
+            # Crear 'Semana del Mes'
+            datos_base['Semana del Mes'] = (datos_base[COLUMNA_FECHA_BASE].dt.day - 1) // 7 + 1
+            datos_base['Semana del Mes'] = datos_base['Semana del Mes'].astype(str) 
+            nuevas_cols_tiempo.append('Semana del Mes')
+            
+            # Crear 'Mes'
+            datos_base['Mes'] = datos_base[COLUMNA_FECHA_BASE].dt.strftime('%Y-%m')
+            nuevas_cols_tiempo.append('Mes')
+            
+        except Exception as e:
+            st.warning(f"Error al procesar la columna de fecha '{COLUMNA_FECHA_BASE}'. El análisis de tiempo no estará disponible. Detalle: {e}")
+            nuevas_cols_tiempo = [] 
 
     # --- MENU DE PESTAÑAS ---
     tab1, tab2, tab3, tab4 = st.tabs(["📄 Datos", "📈 KPIs", "📊 Gráficos", "🔎 Filtros Avanzados"])
@@ -154,6 +210,7 @@ else:
     # --- KPIs ---
     with tab2:
         st.subheader("Indicadores clave")
+        # KPI's se calculan sobre la base de datos completa por ahora
         num_cols = datos_base.select_dtypes(include='number').columns.tolist()
         if num_cols:
             display_cols = num_cols[:4] if len(num_cols) > 4 else num_cols
@@ -199,12 +256,24 @@ else:
         
         else:
             try:
+                # Lógica para ordenar los ejes de tiempo correctamente
+                orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+                category_orders = {}
+
+                if x_col == 'Día de la Semana':
+                    category_orders[x_col] = orden_dias
+                elif x_col == 'Semana del Mes':
+                    valid_weeks = [w for w in datos_base['Semana del Mes'].unique() if pd.notna(w) and str(w).isdigit()]
+                    category_orders[x_col] = sorted(valid_weeks, key=int)
+                
+                # Generación de Gráficos
                 if tipo_grafico == "Barras":
-                    fig = px.bar(datos_base, x=x_col, y=y_col, color=color_col)
+                    fig = px.bar(datos_base, x=x_col, y=y_col, color=color_col, category_orders=category_orders)
                 elif tipo_grafico == "Pastel":
                     fig = px.pie(datos_base, names=x_col, values=y_col, color=color_col)
                 elif tipo_grafico == "Líneas":
-                    fig = px.line(datos_base, x=x_col, y=y_col, color=color_col)
+                    # Si el eje X es una fecha, se ordena automáticamente. Si es Mes/Semana/Día se usa category_orders.
+                    fig = px.line(datos_base, x=x_col, y=y_col, color=color_col, category_orders=category_orders)
                 elif tipo_grafico == "Scatter":
                     fig = px.scatter(datos_base, x=x_col, y=y_col, color=color_col)
                 elif tipo_grafico == "Box":
@@ -225,6 +294,7 @@ else:
     # ----------------------------------------------------------------------
     with tab4:
         st.title("🔎 Filtros Dinámicos Rigurosos")
+        st.markdown("Los filtros ahora son en **cascada**: cada filtro se basa solo en los datos restantes de los filtros anteriores.")
         
         columnas_df = datos_base.columns.tolist()
         
@@ -247,11 +317,12 @@ else:
             
         st.markdown("---")
             
-        # Inicia el DataFrame filtrado con la copia del maestro
         datos_filtrados = datos_base.copy()
         
-        # Las columnas que REALMENTE se van a filtrar y mostrar
-        columnas_visibles = [col for col in columnas_df if col not in columnas_a_ocultar]
+        # Ordenar las columnas para mostrar las de tiempo primero
+        columnas_base_filtrables = [col for col in columnas_df if col not in nuevas_cols_tiempo]
+        columnas_ordenadas = nuevas_cols_tiempo + columnas_base_filtrables
+        columnas_visibles = [col for col in columnas_ordenadas if col not in columnas_a_ocultar]
 
         with st.container():
             
@@ -274,7 +345,10 @@ else:
                         valores_unicos = df_para_opciones[col].unique()
                         columna_es_texto = pd.api.types.is_object_dtype(df_para_opciones[col]) or pd.api.types.is_string_dtype(df_para_opciones[col])
                         
-                        if columna_es_texto:
+                        
+                        # 1. Definición de la lista de opciones (opciones_filtro)
+                        if columna_es_texto and col not in nuevas_cols_tiempo:
+                            # Lógica de Raíz solo para columnas que no son de tiempo
                             opciones_raíz = set()
                             for v in valores_unicos:
                                 if pd.notna(v) and isinstance(v, str):
@@ -282,29 +356,42 @@ else:
                                     opciones_raíz.add(raíz)
                             opciones_filtro = sorted(list(opciones_raíz))
                             opciones_filtro.append(" (Vacío / N/A)")
+                        
+                        elif col == 'Día de la Semana':
+                            # Orden específico para los días de la semana
+                            orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+                            opciones_filtro = [d for d in orden_dias if d in valores_unicos]
+                            opciones_filtro.append(" (Vacío / N/A)")
+                        
                         else:
+                            # Filtro tradicional o para Mes y Semana del Mes
                             opciones_filtro = [str(v) if pd.notna(v) else " (Vacío / N/A)" for v in valores_unicos]
-                            opciones_filtro = sorted(opciones_filtro)
+                            if col == 'Semana del Mes':
+                                # Asegurar el orden numérico para las semanas (1, 2, 3, ...)
+                                sin_na = [v for v in opciones_filtro if v != " (Vacío / N/A)"]
+                                ordenadas = sorted(sin_na, key=lambda x: int(x) if x.isdigit() else 99)
+                                opciones_filtro = ordenadas + [v for v in opciones_filtro if v == " (Vacío / N/A)"]
+                            else:
+                                # Orden alfabético/cronológico para Mes y otras
+                                sin_na = [v for v in opciones_filtro if v != " (Vacío / N/A)"]
+                                ordenadas = sorted(sin_na)
+                                opciones_filtro = ordenadas + [v for v in opciones_filtro if v == " (Vacío / N/A)"]
                             
                         # --- MANEJO DEL ESTADO DE SESIÓN Y SANITIZACIÓN ---
                         if f"filter_{col}" not in st.session_state:
                             st.session_state[f"filter_{col}"] = []
                             
-                        # Corrección clave: Sanitizar el valor por defecto
+                        # Sanitizar el valor por defecto (Soluciona el error StreamlitAPIException)
                         current_default = st.session_state[f"filter_{col}"]
-                        
-                        # Mantiene solo los elementos seleccionados que están presentes en la nueva lista de opciones
                         sanitized_default = [item for item in current_default if item in opciones_filtro]
-                        
-                        # Actualiza el estado de sesión con los valores válidos
                         st.session_state[f"filter_{col}"] = sanitized_default 
                         
                         with cols[j]:
                             # El desplegable de selección
+                            etiqueta_filtro = 'Raíz' if columna_es_texto and col not in nuevas_cols_tiempo else 'Valor'
                             seleccion_str = st.multiselect(
-                                label=f"Filtro: {col} ({'Raíz' if columna_es_texto else 'Valor'})",
+                                label=f"Filtro: {col} ({etiqueta_filtro})",
                                 options=opciones_filtro,
-                                # Usar el estado de sesión que ya fue sanitizado
                                 default=st.session_state[f"filter_{col}"],
                                 key=f"filter_{col}"
                             )
@@ -315,7 +402,8 @@ else:
                                 filtrar_nans = " (Vacío / N/A)" in seleccion_str
                                 items_a_filtrar = [r for r in seleccion_str if r != " (Vacío / N/A)"]
                                 
-                                if columna_es_texto:
+                                # Las nuevas columnas de tiempo (Mes, Semana, Día) no usan la lógica de "Raíz"
+                                if columna_es_texto and col not in nuevas_cols_tiempo:
                                     # Lógica de Raíz (Filtro por Contenido)
                                     filtro_final = pd.Series([False] * len(datos_filtrados), index=datos_filtrados.index)
                                     
@@ -330,7 +418,7 @@ else:
                                     datos_filtrados = datos_filtrados[filtro_final]
                                     
                                 else:
-                                    # Lógica de Valor Único (Filtro Tradicional)
+                                    # Lógica de Valor Único (incluye columnas de tiempo)
                                     filtro_principal = datos_filtrados[col].astype(str).isin(items_a_filtrar)
                                     
                                     if filtrar_nans:
