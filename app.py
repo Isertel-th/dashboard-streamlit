@@ -67,6 +67,7 @@ else:
         st.sidebar.header("⚙️ Administración")
         
         # SUBIR ARCHIVOS
+        # PERMITE SUBIR MULTIPLES ARCHIVOS
         nuevos_archivos = st.sidebar.file_uploader("Subir archivos Excel", type="xlsx", accept_multiple_files=True)
         if nuevos_archivos:
             for f in nuevos_archivos:
@@ -79,7 +80,7 @@ else:
         archivos_actuales = os.listdir(UPLOAD_FOLDER)
         st.sidebar.markdown("---")
 
-        # ELIMINAR SELECCIONADOS
+        # ELIMINAR SELECCIONADOS (Permite 1, 2, 4, o cualquier cantidad)
         eliminar = st.sidebar.multiselect("Selecciona archivos a eliminar", archivos_actuales)
         if st.sidebar.button("🗑️ Eliminar seleccionados", key="del_selected"):
             if eliminar:
@@ -109,11 +110,12 @@ else:
              st.sidebar.info("La carpeta de subidas está vacía.")
         # -------------------------------------------------------------
 
-    # --- CARGAR DATOS ---
+    # --- CARGAR DATOS (FUSIÓN ESTADÍSTICA) ---
     archivos_para_combinar = [os.path.join(UPLOAD_FOLDER, f) for f in os.listdir(UPLOAD_FOLDER)]
     datos = None
     if archivos_para_combinar:
         try:
+            # LECTURA Y CONCATENACIÓN (FUSIÓN) DE MÚLTIPLES ARCHIVOS
             df_list = [pd.read_excel(f) for f in archivos_para_combinar]
             datos = pd.concat(df_list, ignore_index=True)
             datos.to_excel(MASTER_EXCEL, index=False)
@@ -211,14 +213,13 @@ else:
                 st.error(f"Error al generar el gráfico. Verifica la combinación de ejes. Detalle: {e}")
 
 
-    # --- FILTROS AVANZADOS (FINAL: Agrupación por Raíz y Limpieza Rápida) ---
+    # --- FILTROS AVANZADOS ---
     with tab4:
         st.title("🔎 Filtros Dinámicos Rigurosos")
         
         columnas_df = datos.columns.tolist()
         
         # --- SECCIÓN DE CONTROL DE VISIBILIDAD ---
-        # Usamos una columna para el botón de limpieza y el selector de ocultar
         col_clean, col_hide = st.columns([1, 2])
         
         with col_clean:
@@ -228,7 +229,7 @@ else:
                     key="clear_all_filters")
 
         with col_hide:
-            # Selector de columnas a ocultar (el "ojo")
+            # Selector de columnas a ocultar
             columnas_a_ocultar = st.multiselect(
                 "👁️ Columnas a ocultar (se oculta el filtro y la columna en la tabla)",
                 options=columnas_df,
