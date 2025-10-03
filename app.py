@@ -267,8 +267,7 @@ else:
                     if col_index < num_columnas_visibles:
                         col = columnas_visibles[col_index] 
                         
-                        # IMPORTANTE: Los valores únicos ahora se calculan sobre el DataFrame YA FILTRADO
-                        # por los filtros anteriores.
+                        # Los valores únicos se calculan sobre el DataFrame YA FILTRADO
                         df_para_opciones = datos_filtrados.copy()
                         
                         # --- PREPARACIÓN DE OPCIONES DINÁMICAS ---
@@ -287,21 +286,30 @@ else:
                             opciones_filtro = [str(v) if pd.notna(v) else " (Vacío / N/A)" for v in valores_unicos]
                             opciones_filtro = sorted(opciones_filtro)
                             
-                        # --- MANEJO DEL ESTADO DE SESIÓN ---
+                        # --- MANEJO DEL ESTADO DE SESIÓN Y SANITIZACIÓN ---
                         if f"filter_{col}" not in st.session_state:
                             st.session_state[f"filter_{col}"] = []
+                            
+                        # Corrección clave: Sanitizar el valor por defecto
+                        current_default = st.session_state[f"filter_{col}"]
+                        
+                        # Mantiene solo los elementos seleccionados que están presentes en la nueva lista de opciones
+                        sanitized_default = [item for item in current_default if item in opciones_filtro]
+                        
+                        # Actualiza el estado de sesión con los valores válidos
+                        st.session_state[f"filter_{col}"] = sanitized_default 
                         
                         with cols[j]:
                             # El desplegable de selección
                             seleccion_str = st.multiselect(
                                 label=f"Filtro: {col} ({'Raíz' if columna_es_texto else 'Valor'})",
                                 options=opciones_filtro,
+                                # Usar el estado de sesión que ya fue sanitizado
                                 default=st.session_state[f"filter_{col}"],
                                 key=f"filter_{col}"
                             )
                             
                             # --- APLICACIÓN DEL FILTRO (ACTUALIZA datos_filtrados) ---
-                            # El resultado de este filtro será la base para el siguiente filtro en el bucle.
                             if seleccion_str:
                                 
                                 filtrar_nans = " (Vacío / N/A)" in seleccion_str
