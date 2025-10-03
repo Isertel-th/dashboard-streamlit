@@ -26,7 +26,7 @@ try:
     usuarios_df['Contraseña'] = usuarios_df['Contraseña'].astype(str).str.strip()
     usuarios_df['Rol'] = usuarios_df['Rol'].astype(str).str.strip()
 except FileNotFoundError:
-    st.error(f"No se encontró {USUARIOS_EXCEL}. Asegúrate de tener un archivo de usuarios.")
+    st.error(f"No se encontró {USUARIOS_EXCEL}.")
     st.stop()
 
 # --- SESSION STATE ---
@@ -143,12 +143,14 @@ else:
     datos_base = datos.copy()
     
     # --------------------------------------------------------------------------
-    # --- CONFIGURACIÓN DE FECHA BASE DINÁMICA ---
+    # --- MÉTRICA DE CONTEO Y CONFIGURACIÓN DE FECHA BASE DINÁMICA ---
     # --------------------------------------------------------------------------
+    
+    # **Añadir métrica de conteo:** Columna para contar cada actividad/fila.
+    datos_base['Conteo de Actividades'] = 1 
     
     # 1. Identificar columnas candidatas a fecha
     columnas_candidatas_fecha = []
-    # Heurística: columnas que contienen 'fecha', 'date', o que son de tipo datetime
     for col in datos_base.columns:
         if pd.api.types.is_datetime64_any_dtype(datos_base[col]):
             columnas_candidatas_fecha.append(col)
@@ -200,99 +202,19 @@ else:
             nuevas_cols_tiempo = [] 
 
     # --- MENU DE PESTAÑAS ---
-    tab1, tab2, tab3, tab4 = st.tabs(["📄 Datos", "📈 KPIs", "📊 Gráficos", "🔎 Filtros Avanzados"])
-
-    # --- TABLA DE DATOS ---
-    with tab1:
-        st.subheader("Vista de datos")
-        st.dataframe(datos_base, use_container_width=True)
-
-    # --- KPIs ---
-    with tab2:
-        st.subheader("Indicadores clave")
-        # KPI's se calculan sobre la base de datos completa por ahora
-        num_cols = datos_base.select_dtypes(include='number').columns.tolist()
-        if num_cols:
-            display_cols = num_cols[:4] if len(num_cols) > 4 else num_cols
-            kpi_cols = st.columns(len(display_cols))
-            
-            for i, col in enumerate(display_cols):
-                with kpi_cols[i]:
-                    st.metric(
-                        label=f"{col} - Total",
-                        value=f"{datos_base[col].sum():,.0f}"
-                    )
-                    st.metric(
-                        label=f"{col} - Promedio",
-                        value=f"{datos_base[col].mean():,.2f}"
-                    )
-                    st.metric(
-                        label=f"{col} - Máx",
-                        value=f"{datos_base[col].max():,.0f}"
-                    )
-        else:
-            st.info("No se encontraron columnas numéricas para calcular KPIs.")
-
-    # --- GRAFICOS ---
-    with tab3:
-        st.subheader("Generador de gráficos")
-        columnas = datos_base.columns.tolist()
-        
-        col_chart, col_data = st.columns([1, 1])
-        with col_chart:
-            tipo_grafico = st.selectbox("Tipo de gráfico", ["Barras", "Pastel", "Líneas", "Scatter", "Box", "Área", "Histograma"])
-        
-        columnas_numericas = [c for c in columnas if pd.api.types.is_numeric_dtype(datos_base[c])]
-        
-        with col_data:
-            x_col = st.selectbox("Eje X", columnas)
-            y_col = st.selectbox("Eje Y", [None] + columnas_numericas)
-            color_col = st.selectbox("Color (opcional)", [None] + columnas)
-
-        fig = None
-        
-        if tipo_grafico in ["Barras", "Líneas", "Scatter", "Box", "Área", "Pastel"] and y_col is None:
-            st.warning(f"El gráfico de {tipo_grafico} requiere que el Eje Y sea una columna numérica.")
-        
-        else:
-            try:
-                # Lógica para ordenar los ejes de tiempo correctamente
-                orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-                category_orders = {}
-
-                if x_col == 'Día de la Semana':
-                    category_orders[x_col] = orden_dias
-                elif x_col == 'Semana del Mes':
-                    valid_weeks = [w for w in datos_base['Semana del Mes'].unique() if pd.notna(w) and str(w).isdigit()]
-                    category_orders[x_col] = sorted(valid_weeks, key=int)
-                
-                # Generación de Gráficos
-                if tipo_grafico == "Barras":
-                    fig = px.bar(datos_base, x=x_col, y=y_col, color=color_col, category_orders=category_orders)
-                elif tipo_grafico == "Pastel":
-                    fig = px.pie(datos_base, names=x_col, values=y_col, color=color_col)
-                elif tipo_grafico == "Líneas":
-                    # Si el eje X es una fecha, se ordena automáticamente. Si es Mes/Semana/Día se usa category_orders.
-                    fig = px.line(datos_base, x=x_col, y=y_col, color=color_col, category_orders=category_orders)
-                elif tipo_grafico == "Scatter":
-                    fig = px.scatter(datos_base, x=x_col, y=y_col, color=color_col)
-                elif tipo_grafico == "Box":
-                    fig = px.box(datos_base, x=x_col, y=y_col, color=color_col)
-                elif tipo_grafico == "Área":
-                    fig = px.area(datos_base, x=x_col, y=y_col, color=color_col)
-                elif tipo_grafico == "Histograma":
-                    fig = px.histogram(datos_base, x=x_col, y=y_col, color=color_col)
-
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True)
-            except Exception as e:
-                st.error(f"Error al generar el gráfico. Verifica la combinación de ejes. Detalle: {e}")
-
+    # Se reordena para incluir la nueva pestaña de gráficos automáticos
+    tab1, tab2, tab3_auto, tab4_gen, tab5_filtros = st.tabs([
+        "📄 Datos", 
+        "📈 KPIs", 
+        "📊 Actividad por Tiempo", # <--- Nueva pestaña de gráficos automáticos
+        "⚙️ Generador de Gráficos",
+        "🔎 Filtros Avanzados"
+    ])
 
     # ----------------------------------------------------------------------
-    # --- FILTROS AVANZADOS (Filtros Dinámicos / en Cascada) ---
+    # --- FILTROS AVANZADOS (Se ejecuta primero para obtener datos_filtrados) ---
     # ----------------------------------------------------------------------
-    with tab4:
+    with tab5_filtros:
         st.title("🔎 Filtros Dinámicos Rigurosos")
         st.markdown("Los filtros ahora son en **cascada**: cada filtro se basa solo en los datos restantes de los filtros anteriores.")
         
@@ -323,11 +245,15 @@ else:
         columnas_base_filtrables = [col for col in columnas_df if col not in nuevas_cols_tiempo]
         columnas_ordenadas = nuevas_cols_tiempo + columnas_base_filtrables
         columnas_visibles = [col for col in columnas_ordenadas if col not in columnas_a_ocultar]
+        
+        # Excluir 'Conteo de Actividades' del filtro/vista si no la quieren ver
+        if 'Conteo de Actividades' in columnas_visibles:
+            columnas_visibles.remove('Conteo de Actividades')
 
         with st.container():
             
             cols_per_row = 3
-            num_columnas_visibles = len(columnas_visibles)
+            num_columnas_visibles = len(columnas_ordenadas) # Usar ordenadas para iteración
             
             for i in range(0, num_columnas_visibles, cols_per_row):
                 cols = st.columns(cols_per_row) 
@@ -336,8 +262,12 @@ else:
                     col_index = i + j
                     
                     if col_index < num_columnas_visibles:
-                        col = columnas_visibles[col_index] 
+                        col = columnas_ordenadas[col_index] 
                         
+                        # Excluir el filtro de 'Conteo de Actividades'
+                        if col == 'Conteo de Actividades':
+                            continue
+                            
                         # Los valores únicos se calculan sobre el DataFrame YA FILTRADO
                         df_para_opciones = datos_filtrados.copy()
                         
@@ -358,7 +288,6 @@ else:
                             opciones_filtro.append(" (Vacío / N/A)")
                         
                         elif col == 'Día de la Semana':
-                            # Orden específico para los días de la semana
                             orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
                             opciones_filtro = [d for d in orden_dias if d in valores_unicos]
                             opciones_filtro.append(" (Vacío / N/A)")
@@ -367,12 +296,10 @@ else:
                             # Filtro tradicional o para Mes y Semana del Mes
                             opciones_filtro = [str(v) if pd.notna(v) else " (Vacío / N/A)" for v in valores_unicos]
                             if col == 'Semana del Mes':
-                                # Asegurar el orden numérico para las semanas (1, 2, 3, ...)
-                                sin_na = [v for v in opciones_filtro if v != " (Vacío / N/A)"]
-                                ordenadas = sorted(sin_na, key=lambda x: int(x) if x.isdigit() else 99)
+                                sin_na = [v for v in opciones_filtro if v != " (Vacío / N/A)" and str(v).isdigit()]
+                                ordenadas = sorted(sin_na, key=int)
                                 opciones_filtro = ordenadas + [v for v in opciones_filtro if v == " (Vacío / N/A)"]
                             else:
-                                # Orden alfabético/cronológico para Mes y otras
                                 sin_na = [v for v in opciones_filtro if v != " (Vacío / N/A)"]
                                 ordenadas = sorted(sin_na)
                                 opciones_filtro = ordenadas + [v for v in opciones_filtro if v == " (Vacío / N/A)"]
@@ -402,7 +329,6 @@ else:
                                 filtrar_nans = " (Vacío / N/A)" in seleccion_str
                                 items_a_filtrar = [r for r in seleccion_str if r != " (Vacío / N/A)"]
                                 
-                                # Las nuevas columnas de tiempo (Mes, Semana, Día) no usan la lógica de "Raíz"
                                 if columna_es_texto and col not in nuevas_cols_tiempo:
                                     # Lógica de Raíz (Filtro por Contenido)
                                     filtro_final = pd.Series([False] * len(datos_filtrados), index=datos_filtrados.index)
@@ -434,4 +360,163 @@ else:
             st.warning("No hay registros que coincidan con la selección de filtros.")
         else:
             # Mostrar solo las columnas que no fueron seleccionadas para ocultar
-            st.dataframe(datos_filtrados[columnas_visibles], use_container_width=True)
+            st.dataframe(datos_filtrados[[c for c in columnas_visibles if c != 'Conteo de Actividades']], use_container_width=True)
+
+
+    # ----------------------------------------------------------------------
+    # --- TABLA DE DATOS (AHORA USA DATOS FILTRADOS EN LUGAR DE BASE) ---
+    # ----------------------------------------------------------------------
+    with tab1:
+        st.subheader("Vista de datos")
+        # Aquí se usa datos_base, que es lo más común para la vista de datos base
+        st.dataframe(datos_base, use_container_width=True)
+
+    # ----------------------------------------------------------------------
+    # --- KPIs (AHORA USA DATOS FILTRADOS EN LUGAR DE BASE) ---
+    # ----------------------------------------------------------------------
+    with tab2:
+        st.subheader("Indicadores clave")
+        # Usar datos_filtrados para que los KPIs reflejen el filtro
+        df_kpi = datos_filtrados.copy()
+        
+        num_cols = df_kpi.select_dtypes(include='number').columns.tolist()
+        if 'Conteo de Actividades' in num_cols:
+            num_cols.remove('Conteo de Actividades') # No mostrar el conteo como KPI principal
+            
+        # Añadir el KPI de conteo total
+        col_count, *kpi_cols = st.columns([1] + [1] * min(3, len(num_cols)))
+        
+        with col_count:
+             st.metric(
+                label="Total de Actividades Filtradas",
+                value=f"{len(df_kpi):,.0f}",
+                delta=f"{(len(df_kpi) / len(datos_base) * 100):.1f}% del total" if len(datos_base) > 0 else "0%"
+            )
+        
+        # Mostrar otros KPIs numéricos
+        if num_cols:
+            display_cols = num_cols[:min(3, len(num_cols))]
+            for i, col in enumerate(display_cols):
+                with kpi_cols[i]:
+                    st.metric(
+                        label=f"{col} - Total",
+                        value=f"{df_kpi[col].sum():,.0f}"
+                    )
+        else:
+            if len(df_kpi) > 0:
+                st.info("Solo se encontró la columna de conteo. No hay otras columnas numéricas para calcular KPIs.")
+
+    # ----------------------------------------------------------------------
+    # --- GRÁFICOS AUTOMÁTICOS POR TIEMPO (NUEVA TAB 3) ---
+    # ----------------------------------------------------------------------
+    with tab3_auto:
+        st.subheader("Actividad por Periodo de Tiempo (Gráficos Automáticos)")
+        
+        if COLUMNA_FECHA_BASE is None:
+            st.warning("Selecciona una Columna de Fecha Base en la sección de Configuración para ver los gráficos de tiempo.")
+        elif datos_filtrados.empty:
+            st.warning("No hay datos para graficar con los filtros aplicados.")
+        else:
+            df_plot = datos_filtrados.copy()
+            
+            # --- GRÁFICO 1: ACTIVIDADES POR SEMANA ---
+            if 'Semana del Mes' in df_plot.columns:
+                st.markdown("### Actividades por Semana del Mes")
+                
+                df_semana = df_plot.groupby('Semana del Mes', as_index=False)['Conteo de Actividades'].sum()
+                
+                orden_semana = sorted([w for w in df_semana['Semana del Mes'].unique() if str(w).isdigit()], key=int)
+                
+                fig_semana = px.bar(
+                    df_semana,
+                    x='Semana del Mes',
+                    y='Conteo de Actividades',
+                    title='Total de Actividades por Semana del Mes',
+                    category_orders={"Semana del Mes": orden_semana},
+                    text='Conteo de Actividades' # Muestra el valor sobre la barra
+                )
+                fig_semana.update_traces(textposition='outside', marker_color='#8e44ad')
+                fig_semana.update_layout(xaxis={'categoryorder':'array', 'categoryarray':orden_semana})
+                st.plotly_chart(fig_semana, use_container_width=True)
+            
+            # --- GRÁFICO 2: ACTIVIDADES POR DÍA DE LA SEMANA ---
+            if 'Día de la Semana' in df_plot.columns:
+                st.markdown("### Actividades por Día de la Semana")
+
+                df_dia = df_plot.groupby('Día de la Semana', as_index=False)['Conteo de Actividades'].sum()
+                
+                orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+                
+                fig_dia = px.line(
+                    df_dia,
+                    x='Día de la Semana',
+                    y='Conteo de Actividades',
+                    title='Tendencia de Actividades por Día de la Semana',
+                    category_orders={"Día de la Semana": orden_dias}
+                )
+                fig_dia.update_traces(mode='lines+markers+text', text=df_dia['Conteo de Actividades'], textposition="top center", line=dict(color='#2ecc71'))
+                fig_dia.update_layout(xaxis={'categoryorder':'array', 'categoryarray':orden_dias})
+                st.plotly_chart(fig_dia, use_container_width=True)
+
+
+    # ----------------------------------------------------------------------
+    # --- GENERADOR DE GRÁFICOS (TAB 4) ---
+    # ----------------------------------------------------------------------
+    with tab4_gen:
+        st.subheader("Generador de gráficos (Personalizado)")
+        
+        # Usar datos_filtrados para que el generador respete los filtros
+        columnas = datos_filtrados.columns.tolist() 
+        
+        col_chart, col_data = st.columns([1, 1])
+        with col_chart:
+            tipo_grafico = st.selectbox("Tipo de gráfico", ["Barras", "Pastel", "Líneas", "Scatter", "Box", "Área", "Histograma"])
+        
+        columnas_numericas = [c for c in columnas if pd.api.types.is_numeric_dtype(datos_filtrados[c])]
+        
+        with col_data:
+            x_col = st.selectbox("Eje X", columnas)
+            # Asegurar que Conteo de Actividades esté al inicio de las opciones para el Eje Y
+            y_options = ['Conteo de Actividades'] + [c for c in columnas_numericas if c != 'Conteo de Actividades']
+            y_col = st.selectbox("Eje Y", [None] + y_options, index=1 if 'Conteo de Actividades' in y_options else 0)
+            color_col = st.selectbox("Color (opcional)", [None] + columnas)
+
+        fig = None
+        
+        if datos_filtrados.empty:
+            st.warning("No hay datos filtrados para generar el gráfico.")
+        elif tipo_grafico in ["Barras", "Líneas", "Scatter", "Box", "Área", "Pastel"] and y_col is None:
+            st.warning(f"El gráfico de {tipo_grafico} requiere que el Eje Y sea una columna numérica. Considera usar 'Conteo de Actividades'.")
+        
+        else:
+            try:
+                # Lógica para ordenar los ejes de tiempo correctamente
+                orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+                category_orders = {}
+
+                if x_col == 'Día de la Semana':
+                    category_orders[x_col] = orden_dias
+                elif x_col == 'Semana del Mes':
+                    valid_weeks = [w for w in datos_filtrados['Semana del Mes'].unique() if pd.notna(w) and str(w).isdigit()]
+                    category_orders[x_col] = sorted(valid_weeks, key=int)
+                
+                # Generación de Gráficos
+                if tipo_grafico == "Barras":
+                    fig = px.bar(datos_filtrados, x=x_col, y=y_col, color=color_col, category_orders=category_orders)
+                elif tipo_grafico == "Pastel":
+                    fig = px.pie(datos_filtrados, names=x_col, values=y_col, color=color_col)
+                elif tipo_grafico == "Líneas":
+                    fig = px.line(datos_filtrados, x=x_col, y=y_col, color=color_col, category_orders=category_orders)
+                elif tipo_grafico == "Scatter":
+                    fig = px.scatter(datos_filtrados, x=x_col, y=y_col, color=color_col)
+                elif tipo_grafico == "Box":
+                    fig = px.box(datos_filtrados, x=x_col, y=y_col, color=color_col)
+                elif tipo_grafico == "Área":
+                    fig = px.area(datos_filtrados, x=x_col, y=y_col, color=color_col)
+                elif tipo_grafico == "Histograma":
+                    fig = px.histogram(datos_filtrados, x=x_col, y=y_col, color=color_col)
+
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"Error al generar el gráfico. Verifica la combinación de ejes. Detalle: {e}")
