@@ -13,12 +13,14 @@ st.set_page_config(page_title="Dashboard Profesional", layout="wide")
 
 # --- FUNCIONES DE FILTRO ---
 def clear_filters(columnas_df):
-    """Reinicia la selección de todos los filtros en el st.session_state."""
+    """
+    Reinicia la selección de todos los filtros en el st.session_state a una lista vacía ([]).
+    Esto hace que los multiselects muestren "Choose options" al recargarse.
+    """
     for col in columnas_df:
-        st.session_state[f"filter_{col}"] = st.session_state[f"all_values_{col}"]
-    st.info("Filtros limpiados. Recargando...")
-    st.rerun()
-
+        # Establece el valor de la clave de sesión del filtro a una lista vacía
+        st.session_state[f"filter_{col}"] = []
+        
 # --- LECTURA DE USUARIOS ---
 try:
     usuarios_df = pd.read_excel(USUARIOS_EXCEL)
@@ -215,8 +217,10 @@ else:
         st.markdown("Utiliza las listas desplegables. Para columnas de texto (ej. Ubicación), las opciones muestran la **primera palabra** (la raíz, ej. 'Quito') y al seleccionar, **filtra todas** las entradas que contengan esa raíz.")
         
         # Botón de Limpieza Global
-        if st.button("🧹 Limpiar TODOS los Filtros", on_click=clear_filters, args=(datos.columns.tolist(),), key="clear_all_filters"):
-            pass # La acción se maneja en la función on_click
+        st.button("🧹 Limpiar TODOS los Filtros", 
+                  on_click=clear_filters, 
+                  args=(datos.columns.tolist(),), 
+                  key="clear_all_filters")
             
         st.markdown("---")
             
@@ -237,7 +241,7 @@ else:
                     if col_index < num_columnas:
                         col = columnas_df[col_index]
                         
-                        # Definir las opciones de filtro (Raíz o Valor Único)
+                        # --- PREPARACIÓN DE OPCIONES ---
                         valores_unicos = datos[col].unique()
                         columna_es_texto = pd.api.types.is_object_dtype(datos[col]) or pd.api.types.is_string_dtype(datos[col])
                         
@@ -253,26 +257,24 @@ else:
                             opciones_filtro = [str(v) if pd.notna(v) else " (Vacío / N/A)" for v in valores_unicos]
                             opciones_filtro = sorted(opciones_filtro)
                             
-                        # Guardar el estado inicial (todos seleccionados) en la sesión
-                        # Esto permite que la función clear_filters lo reinicie
-                        if f"all_values_{col}" not in st.session_state:
-                            st.session_state[f"all_values_{col}"] = opciones_filtro
-
-                        # Inicializar o usar el estado de sesión actual para el multiselect
+                        # --- MANEJO DEL ESTADO DE SESIÓN ---
+                        # Inicializar el estado de sesión del filtro a una lista vacía si es la primera vez
                         if f"filter_{col}" not in st.session_state:
-                            st.session_state[f"filter_{col}"] = opciones_filtro
+                            st.session_state[f"filter_{col}"] = []
                         
                         with cols[j]:
                             # El desplegable de selección
                             seleccion_str = st.multiselect(
                                 label=f"Filtro: {col} ({'Raíz' if columna_es_texto else 'Valor'})",
                                 options=opciones_filtro,
+                                # Usar el estado de sesión como valor por defecto (será [] al inicio o después de limpiar)
                                 default=st.session_state[f"filter_{col}"],
                                 key=f"filter_{col}" # La clave que se manipula
                             )
                             
                             # --- APLICACIÓN DEL FILTRO ---
-                            if seleccion_str and len(seleccion_str) < len(opciones_filtro):
+                            # Solo filtramos si hay algo seleccionado (len > 0)
+                            if seleccion_str:
                                 
                                 filtrar_nans = " (Vacío / N/A)" in seleccion_str
                                 items_a_filtrar = [r for r in seleccion_str if r != " (Vacío / N/A)"]
@@ -283,8 +285,9 @@ else:
                                     
                                     if items_a_filtrar:
                                         for raíz in items_a_filtrar:
+                                            # Buscamos que la raíz esté contenida en el valor
                                             mascara_raíz = datos_filtrados[col].astype(str).str.contains(raíz, case=False, na=False)
-                                            filtro_final = filtro_final | mascara_raíz
+                                            filtro_final = filtro_final | mascara_raíz # Lógica OR entre las raíces
                                     
                                     if filtrar_nans:
                                         filtro_final = filtro_final | datos_filtrados[col].isna()
@@ -300,8 +303,7 @@ else:
                                     else:
                                         datos_filtrados = datos_filtrados[filtro_principal]
 
-
-                            # Si la selección es igual a las opciones_filtro, no se filtra (todos seleccionados)
+                            # Si 'seleccion_str' está vacío ([]), no se filtra, manteniendo 'datos_filtrados' intacto hasta el siguiente filtro.
                                 
         st.markdown("---")
         st.subheader(f"Vista Filtrada ({len(datos_filtrados)} de {len(datos)} registros)")
