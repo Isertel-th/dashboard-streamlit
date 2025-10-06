@@ -441,7 +441,7 @@ else:
                     col_metric_1, col_metric_2, col_metric_3, col_metric_4, col_metric_5 = st.columns(5)
 
                     with col_metric_1:
-                        st.metric(label="📦 Total de Registros", value=f"{total_registros:,}")
+                        st.metric(label="📦 Total de Ordenes", value=f"{total_registros:,}")
                     with col_metric_2:
                         st.metric(label="✅ Total Instalaciones", value=f"{total_instalaciones:,}")
                     with col_metric_3:
