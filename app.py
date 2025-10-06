@@ -61,6 +61,7 @@ def clean_ciudad(ciudad):
     return str(ciudad).strip()
 
 # --- FUNCIÓN DE SEGMENTACIÓN FIJA SOLICITADA ---
+@st.cache_data
 def calculate_fixed_week(day):
     """
     Calcula el número de semana (1-5) basado en el día del mes.
@@ -98,21 +99,26 @@ if 'usuario' not in st.session_state:
 if not st.session_state.login:
     st.title("📊 Estadístico Isertel - Login")
     st.subheader("Inicia sesión para acceder")
-    usuario_input = st.text_input("Usuario")
-    contrasena_input = st.text_input("Contraseña", type="password")
+    
+    # Centrar la caja de login ligeramente
+    col_login_spacer_l, col_login_box, col_login_spacer_r = st.columns([1, 2, 1])
+    
+    with col_login_box:
+        usuario_input = st.text_input("Usuario")
+        contrasena_input = st.text_input("Contraseña", type="password")
 
-    if st.button("Iniciar sesión"):
-        user_row = usuarios_df[
-            (usuarios_df["Usuario"].str.lower() == usuario_input.strip().lower()) &
-            (usuarios_df["Contraseña"] == contrasena_input.strip())
-        ]
-        if not user_row.empty:
-            st.session_state.login = True
-            st.session_state.rol = user_row.iloc[0]["Rol"]
-            st.session_state.usuario = usuario_input.strip()
-            st.rerun()
-        else:
-            st.error("Usuario o contraseña incorrectos")
+        if st.button("Iniciar sesión", use_container_width=True):
+            user_row = usuarios_df[
+                (usuarios_df["Usuario"].str.lower() == usuario_input.strip().lower()) &
+                (usuarios_df["Contraseña"] == contrasena_input.strip())
+            ]
+            if not user_row.empty:
+                st.session_state.login = True
+                st.session_state.rol = user_row.iloc[0]["Rol"]
+                st.session_state.usuario = usuario_input.strip()
+                st.rerun()
+            else:
+                st.error("Usuario o contraseña incorrectos")
 
 else:
     # --- Interfaz Principal ---
@@ -207,7 +213,6 @@ else:
     # --- Estructura con PESTAÑAS (Mejora visual clave) ---
     tabs = ["📊 Dashboard", "⚙️ Administración de Datos"] if st.session_state.rol.lower() == "admin" else ["📊 Dashboard"]
     
-    # Crea las pestañas solo si hay datos para mostrar el dashboard O si el rol es admin
     if datos is not None and not datos.empty:
         tab_dashboard, *tab_admin = st.tabs(tabs) 
     elif st.session_state.rol.lower() == "admin":
@@ -292,12 +297,13 @@ else:
             else: # Solo si hay datos válidos, procedemos con filtros y gráficos
                 
                 # --- Contenedor de Filtros (para agrupar y acercar) ---
-                with st.container(border=True):
+                # MEJORA VISUAL: Usamos st.expander para ocultar los filtros y limpiar el dashboard inicialmente
+                with st.expander("🔎 Opciones de Filtro y Rango de Fechas", expanded=True): 
                     
                     # 2. FILTRO DE RANGO DE FECHAS
                     st.subheader(f"📅 Rango de {COL_FECHA_DESCRIPTIVA} y Filtros de Segmentación")
                     
-                    col_desde, col_hasta, _, _ = st.columns([1.5, 1.5, 0.5, 5]) # Se usan 4 columnas para el layout
+                    col_desde, col_hasta, _, _ = st.columns([1.5, 1.5, 0.5, 5]) 
 
                     # Filtro de fecha en las primeras dos columnas
                     with col_desde:
@@ -311,7 +317,7 @@ else:
                     if date_from > date_to:
                         st.error("⚠️ La fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.")
                         datos_filtrados = pd.DataFrame() 
-                        st.stop() # Detiene la ejecución si el filtro de fecha es inválido
+                        st.stop() 
                     
                     filtro_inicio = pd.to_datetime(date_from)
                     filtro_fin = pd.to_datetime(date_to) + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1) 
@@ -327,9 +333,9 @@ else:
                     if COL_CIUDAD_KEY in datos_filtrados.columns:
                         datos_filtrados[COL_FILTRO_CIUDAD] = datos_filtrados[COL_CIUDAD_KEY].astype(str).apply(clean_ciudad)
                     
-                    # DataFrame base para los filtros (ya filtrado por fecha)
                     df_all = datos_filtrados.copy()
 
+                    @st.cache_data
                     def get_multiselect_options(df, col_key_filtro):
                         """Obtiene opciones únicas (limpias) de una columna para el multiselect."""
                         if col_key_filtro not in df.columns:
@@ -351,6 +357,7 @@ else:
                             opciones.insert(0, '(Nulos/Vacíos)')
                         return opciones
 
+                    @st.cache_data
                     def apply_filter(df, col_key_filtro, selected_options):
                         """Aplica un filtro a un DataFrame basada en las opciones seleccionadas (limpias)."""
                         if not selected_options or col_key_filtro not in df.columns:
@@ -359,10 +366,8 @@ else:
                         filtro_valido = [val for val in selected_options if val != '(Nulos/Vacíos)']
                         filtro_nulos = '(Nulos/Vacíos)' in selected_options
                         
-                        # Mascara para valores válidos (no nulos)
                         mascara_validos = df[col_key_filtro].astype(str).isin(filtro_valido)
                         
-                        # Mascara para nulos/vacíos
                         if filtro_nulos:
                             mascara_nulos = df[col_key_filtro].isna() | (df[col_key_filtro].astype(str).str.strip() == '')
                             mascara = mascara_validos | mascara_nulos
@@ -376,25 +381,15 @@ else:
                     
                     col_ciu, col_tec = st.columns(2)
                     
-                    # --- Lectura de selecciones anteriores (para el estado del filtro) ---
-                    # Streamlit usa el estado de la última ejecución (session_state)
                     filtro_ciudad_actual = st.session_state.get('multiselect_ubicacion', [])
                     filtro_tecnico_actual = st.session_state.get('multiselect_tecnico', [])
 
-                    # --- CÁLCULO DE DOMINIOS (Cascada Doble Vía) ---
-                    
-                    # A. Dominio para UBICACIÓN (opciones restringidas por selección de Técnico)
                     df_domain_ciu = apply_filter(df_all, COL_FILTRO_TECNICO, filtro_tecnico_actual)
                     opciones_ciudad = get_multiselect_options(df_domain_ciu, COL_FILTRO_CIUDAD)
 
-                    # B. Dominio para TÉCNICO (opciones restringidas por selección de Ubicación)
                     df_domain_tec = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
                     opciones_tecnico = get_multiselect_options(df_domain_tec, COL_FILTRO_TECNICO)
 
-
-                    # --- RENDERIZACIÓN DE FILTROS ---
-
-                    # A. Renderizar UBICACIÓN (Izquierda)
                     with col_ciu:
                         filtro_ciudad = st.multiselect(
                             f"Seleccionar **{COL_CIUDAD_DESCRIPTIVA}** (Limpio):", 
@@ -403,7 +398,6 @@ else:
                             key='multiselect_ubicacion'
                         )
                         
-                    # B. Renderizar TÉCNICO (Derecha)
                     with col_tec:
                         filtro_tecnico = st.multiselect(
                             f"Seleccionar **{COL_TECNICO_DESCRIPTIVA}** (Limpio):", 
@@ -413,170 +407,169 @@ else:
                         )
 
                     # --- APLICACIÓN FINAL DE FILTROS ---
-                    # Aplicar ambos filtros al DataFrame base de fecha (usando las columnas limpias)
                     df_final = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad)
                     df_final = apply_filter(df_final, COL_FILTRO_TECNICO, filtro_tecnico)
                     
                     datos_filtrados = df_final
+                
+                # NUEVO SEPARADOR VISUAL: Separa los filtros de las métricas/resultados
+                st.markdown("---")
 
                 # 4. CÁLCULO Y VISTA DEL MENÚ CONTEXTUAL (Métricas)
-                st.subheader("💡 Métricas Clave")
-
-                total_registros = len(datos_filtrados)
+                st.subheader("💡 Métricas Clave y Desempeño") 
                 
-                if COL_TIPO_ORDEN_KEY in datos_filtrados.columns:
-                    # Conteo de Instalaciones
-                    total_instalaciones = len(datos_filtrados[
-                        datos_filtrados[COL_TIPO_ORDEN_KEY].astype(str).str.contains('INSTALACION', case=False, na=False)
-                    ])
-                    # Conteo de Visitas Técnicas
-                    total_visitas_tecnicas = len(datos_filtrados[
-                        datos_filtrados[COL_TIPO_ORDEN_KEY].astype(str).str.contains('VISITA TÉCNICA', case=False, na=False)
-                    ])
-                else:
-                    total_instalaciones = 0
-                    total_visitas_tecnicas = 0
-
-                # Columnas para las métricas (USAMOS 5 COLUMNAS para los tres conteos y las dos tasas)
-                # total_registros | total_instalaciones | total_visitas_tecnicas | tasa_instalacion | tasa_visita_tecnica
-                col_metric_1, col_metric_2, col_metric_3, col_metric_4, col_metric_5 = st.columns(5)
-
-                # 1. Total de Registros
-                with col_metric_1:
-                    st.metric(label="📦 Total de Registros Filtrados", value=f"{total_registros:,}")
-
-                # 2. Total Instalaciones
-                with col_metric_2:
-                    st.metric(label="✅ Total Instalaciones", value=f"{total_instalaciones:,}")
+                # --- TARJETA DE KPIS ---
+                with st.container(border=True): # <--- CONTENEDOR TIPO TARJETA
+                    total_registros = len(datos_filtrados)
                     
-                # 3. Total Visitas Técnicas
-                with col_metric_3:
-                    st.metric(label="🛠️ Total Visitas Técnicas", value=f"{total_visitas_tecnicas:,}")
+                    # Cálculos
+                    if COL_TIPO_ORDEN_KEY in datos_filtrados.columns:
+                        total_instalaciones = len(datos_filtrados[
+                            datos_filtrados[COL_TIPO_ORDEN_KEY].astype(str).str.contains('INSTALACION', case=False, na=False)
+                        ])
+                        total_visitas_tecnicas = len(datos_filtrados[
+                            datos_filtrados[COL_TIPO_ORDEN_KEY].astype(str).str.contains('VISITA TÉCNICA', case=False, na=False)
+                        ])
+                    else:
+                        total_instalaciones = 0
+                        total_visitas_tecnicas = 0
 
-                # 4. Tasa de Instalación
-                with col_metric_4:
                     tasa_instalacion = total_instalaciones / total_registros if total_registros > 0 else 0.0
-                    st.metric(label="📈 Tasa de Instalación", value=f"{tasa_instalacion:.1%}")
-
-                # 5. Tasa de Visitas Técnicas
-                with col_metric_5:
                     tasa_visitas_tecnicas = total_visitas_tecnicas / total_registros if total_registros > 0 else 0.0
-                    st.metric(label="📉 Tasa de Visitas Técnicas", value=f"{tasa_visitas_tecnicas:.1%}")
+
+                    # Columnas para las métricas (5 columnas)
+                    col_metric_1, col_metric_2, col_metric_3, col_metric_4, col_metric_5 = st.columns(5)
+
+                    with col_metric_1:
+                        st.metric(label="📦 Total de Registros", value=f"{total_registros:,}")
+                    with col_metric_2:
+                        st.metric(label="✅ Total Instalaciones", value=f"{total_instalaciones:,}")
+                    with col_metric_3:
+                        st.metric(label="🛠️ Total Visitas Técnicas", value=f"{total_visitas_tecnicas:,}")
+                    with col_metric_4:
+                        # MODIFICADO: Se eliminan delta y delta_color
+                        st.metric(label="📈 Tasa de Instalación", value=f"{tasa_instalacion:.1%}") 
+                    with col_metric_5:
+                        st.metric(label="📉 Tasa de Visitas Técnicas", value=f"{tasa_visitas_tecnicas:.1%}")
                 
                 
-                # 5. GRÁFICO DE TAREAS REALIZADAS POR SEGMENTO FIJO (1-7, 8-14, ...)
-                st.markdown("---")
-                st.subheader("📊 Total de Tareas Realizadas: Últimos 5 Segmentos Fijos por Día del Mes")
-
-                df_escala = pd.DataFrame() 
+                # --- LAYOUT PRINCIPAL: GRÁFICO (Columna 1) y OTROS (Columna 2) ---
+                col_grafico, col_otros = st.columns([3, 1])
                 
-                if total_registros > 0:
-                    
-                    # 5.1 PREPARACIÓN DE DATOS DE SEGMENTACIÓN FIJA
-                    datos_temp = datos_filtrados.copy()
-                    
-                    datos_temp['DAY'] = datos_temp[COL_TEMP_DATETIME].dt.day.astype(int)
-                    datos_temp['MONTH'] = datos_temp[COL_TEMP_DATETIME].dt.month.astype(int)
-                    datos_temp['YEAR'] = datos_temp[COL_TEMP_DATETIME].dt.year.astype(int)
-                    
-                    # APLICAR LA LÓGICA DE SEMANA FIJA
-                    datos_temp['FIXED_WEEK'] = datos_temp['DAY'].apply(calculate_fixed_week).astype(int)
-                    
-                    # Crear una clave de segmentación única para el orden (Ej: 2025-10-4)
-                    datos_temp['_SEGM_AÑO_MES_'] = datos_temp['YEAR'].astype(str) + '-' + datos_temp['MONTH'].astype(str).str.zfill(2) + '-' + datos_temp['FIXED_WEEK'].astype(str)
-                    
-                    # Agrupar por el Segmento Único y contar
-                    conteo_segmentos = datos_temp.groupby('_SEGM_AÑO_MES_').size().reset_index(name='Total_Tareas')
-                    
-                    # 5.2 LÓGICA DE LOS ÚLTIMOS 5 SEGMENTOS CON DATOS
-                    
-                    top_5_segmentos = conteo_segmentos.sort_values(by='_SEGM_AÑO_MES_', ascending=False).head(5)
-                    df_escala = top_5_segmentos.sort_values(by='_SEGM_AÑO_MES_', ascending=True).copy()
-                    
-                    N = len(df_escala)
-                    
-                    # Función para crear etiquetas más descriptivas para el eje X
-                    def get_segment_range(year_month_segm):
-                        week_num = int(year_month_segm.split('-')[2])
-                        ranges = {1: 'Día 1-7', 2: 'Día 8-14', 3: 'Día 15-21', 4: 'Día 22-28', 5: 'Día 29-31'}
-                        month_num = int(year_month_segm.split('-')[1])
-                        month_name = pd.to_datetime(str(month_num), format='%m').strftime('%b')
-                        year = year_month_segm.split('-')[0]
-                        return f"{ranges.get(week_num, 'S5+')} ({month_name}/{year})"
+                # 5. GRÁFICO DE TAREAS REALIZADAS POR SEGMENTO FIJO
+                with col_grafico:
+                    with st.container(border=True): # <--- Tarjeta para el Gráfico
+                        st.subheader("📊 Tareas Realizadas: Últimos 5 Segmentos Fijos")
 
-                    df_escala['Segmento_Label'] = df_escala.apply(lambda row: get_segment_range(row['_SEGM_AÑO_MES_']), axis=1)
+                        df_escala = pd.DataFrame() 
+                        
+                        if total_registros > 0:
+                            
+                            datos_temp = datos_filtrados.copy()
+                            datos_temp['DAY'] = datos_temp[COL_TEMP_DATETIME].dt.day.astype(int)
+                            datos_temp['MONTH'] = datos_temp[COL_TEMP_DATETIME].dt.month.astype(int)
+                            datos_temp['YEAR'] = datos_temp[COL_TEMP_DATETIME].dt.year.astype(int)
+                            datos_temp['FIXED_WEEK'] = datos_temp['DAY'].apply(calculate_fixed_week).astype(int)
+                            datos_temp['_SEGM_AÑO_MES_'] = datos_temp['YEAR'].astype(str) + '-' + datos_temp['MONTH'].astype(str).str.zfill(2) + '-' + datos_temp['FIXED_WEEK'].astype(str)
+                            
+                            conteo_segmentos = datos_temp.groupby('_SEGM_AÑO_MES_').size().reset_index(name='Total_Tareas')
+                            
+                            top_5_segmentos = conteo_segmentos.sort_values(by='_SEGM_AÑO_MES_', ascending=False).head(5)
+                            df_escala = top_5_segmentos.sort_values(by='_SEGM_AÑO_MES_', ascending=True).copy()
+                            
+                            def get_segment_range(year_month_segm):
+                                week_num = int(year_month_segm.split('-')[2])
+                                ranges = {1: 'Día 1-7', 2: 'Día 8-14', 3: 'Día 15-21', 4: 'Día 22-28', 5: 'Día 29-31'}
+                                month_num = int(year_month_segm.split('-')[1])
+                                month_name = pd.to_datetime(str(month_num), format='%m').strftime('%b')
+                                year = year_month_segm.split('-')[0]
+                                return f"{ranges.get(week_num, 'S5+')} ({month_name}/{year})"
 
-                    # 4. Combinar el conteo real con el esqueleto.
-                    conteo_5_segmentos = df_escala[['_SEGM_AÑO_MES_', 'Segmento_Label']].merge(
-                        conteo_segmentos[['_SEGM_AÑO_MES_', 'Total_Tareas']], 
-                        on='_SEGM_AÑO_MES_', 
-                        how='left'
-                    ).fillna(0)
-                    
-                    conteo_5_segmentos['Total_Tareas'] = conteo_5_segmentos['Total_Tareas'].astype(int)
-                    
-                    # 5.3 GENERAR GRÁFICO
-                    
-                    fig = px.bar(
-                        conteo_5_segmentos, 
-                        x='Segmento_Label', 
-                        y='Total_Tareas',
-                        title='Conteo de Tareas Finalizadas por Segmento Fijo (Últimos 5)',
-                        labels={'Segmento_Label': 'Período Semanal Fijo', 'Total_Tareas': 'Cantidad de Tareas'},
-                        text='Total_Tareas',
-                        color_discrete_sequence=['#1f77b4'] 
-                    )
-                    
-                    fig.update_layout(
-                        uniformtext_minsize=8, 
-                        uniformtext_mode='hide', 
-                        xaxis_title=None, 
-                        yaxis_title='Cantidad de Tareas',
-                        # Asegurar el orden cronológico
-                        xaxis={'categoryorder':'array', 'categoryarray': conteo_5_segmentos['Segmento_Label']} 
-                    )
-                    fig.update_traces(textposition='outside')
-                    
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                else:
-                    st.info("No hay datos filtrados para generar el gráfico semanal.")
+                            df_escala['Segmento_Label'] = df_escala.apply(lambda row: get_segment_range(row['_SEGM_AÑO_MES_']), axis=1)
+
+                            conteo_5_segmentos = df_escala[['_SEGM_AÑO_MES_', 'Segmento_Label']].merge(
+                                conteo_segmentos[['_SEGM_AÑO_MES_', 'Total_Tareas']], 
+                                on='_SEGM_AÑO_MES_', 
+                                how='left'
+                            ).fillna(0)
+                            
+                            conteo_5_segmentos['Total_Tareas'] = conteo_5_segmentos['Total_Tareas'].astype(int)
+                            
+                            # GENERAR GRÁFICO
+                            fig = px.bar(
+                                conteo_5_segmentos, 
+                                x='Segmento_Label', 
+                                y='Total_Tareas',
+                                title='Conteo de Tareas Finalizadas por Segmento Fijo (Últimos 5)',
+                                labels={'Segmento_Label': 'Período Semanal Fijo', 'Total_Tareas': 'Cantidad de Tareas'},
+                                text='Total_Tareas',
+                                color_discrete_sequence=['#4CAF50']
+                            )
+                            
+                            fig.update_layout(
+                                uniformtext_minsize=8, 
+                                uniformtext_mode='hide', 
+                                xaxis_title=None, 
+                                yaxis_title='Cantidad de Tareas',
+                                xaxis={'categoryorder':'array', 'categoryarray': conteo_5_segmentos['Segmento_Label']} 
+                            )
+                            fig.update_traces(textposition='outside')
+                            
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                        else:
+                            st.info("No hay datos filtrados para generar el gráfico semanal.")
 
 
-                # 6. PREPARACIÓN FINAL DE LA TABLA
+                # 6. GRÁFICO DE TAREAS POR TÉCNICO (COLUMNA DERECHA)
+                with col_otros:
+                    with st.container(border=True): # <--- Tarjeta para el Top Técnico
+                        st.subheader("Top 5 Técnicos")
+                        
+                        if COL_FILTRO_TECNICO in datos_filtrados.columns and total_registros > 0:
+                            top_tecnicos = datos_filtrados[COL_FILTRO_TECNICO].value_counts().reset_index()
+                            top_tecnicos.columns = ['Técnico', 'Total Tareas']
+                            top_tecnicos = top_tecnicos.head(5)
+                            
+                            # Gráfico circular (Pie Chart) para distribución
+                            fig_pie = px.pie(
+                                top_tecnicos, 
+                                values='Total Tareas', 
+                                names='Técnico', 
+                                title='Distribución del Top 5',
+                                hole=.3, 
+                                color_discrete_sequence=px.colors.qualitative.Pastel 
+                            )
+                            fig_pie.update_layout(showlegend=False, margin=dict(l=10, r=10, t=50, b=10))
+                            st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
+                        else:
+                            st.info("Datos insuficientes para Top Técnico.")
+                            
+                # 7. TABLA DE RESULTADOS RAW (OCULTA EN UN EXPANDER)
                 
-                # Se recalcula la columna FIXED_WEEK para la vista de tabla
+                # PREPARACIÓN FINAL DE LA TABLA (Mismo código original)
                 if not df_escala.empty:
-                    
-                    # Recalculamos las columnas de segmentación para el mapeo
                     datos_filtrados['DAY'] = datos_filtrados[COL_TEMP_DATETIME].dt.day.astype(int)
                     datos_filtrados['MONTH'] = datos_filtrados[COL_TEMP_DATETIME].dt.month.astype(int)
                     datos_filtrados['YEAR'] = datos_filtrados[COL_TEMP_DATETIME].dt.year.astype(int)
                     datos_filtrados['FIXED_WEEK'] = datos_filtrados['DAY'].apply(calculate_fixed_week).astype(int)
                     
-                    # Usamos la columna FIXED_WEEK (1-5)
                     datos_filtrados[COL_FINAL_SEMANA_GRAFICO] = datos_filtrados['FIXED_WEEK'].astype(str)
                 else:
                     datos_filtrados[COL_FINAL_SEMANA_GRAFICO] = 'Sin Datos'
                 
-                # 4. Reestructurar y renombrar
-                
-                # Eliminar columnas temporales (incluyendo las de filtro limpio)
                 temp_cols_to_drop = [COL_TEMP_DATETIME, 'DAY', 'MONTH', 'YEAR', 'FIXED_WEEK', '_SEGM_AÑO_MES_', COL_FILTRO_CIUDAD, COL_FILTRO_TECNICO]
                 for col in temp_cols_to_drop:
                     if col in datos_filtrados.columns:
                         datos_filtrados.drop(columns=[col], inplace=True) 
 
-                # Renombrar columnas usando el mapeo descriptivo (esto conserva los valores RAW del Excel)
                 datos_vista = datos_filtrados.rename(columns=FINAL_RENAMING_MAP)
                 
-                # Ordenar columnas
                 orden_descriptivo = list(FINAL_RENAMING_MAP.values())
                 columnas_finales = [col for col in orden_descriptivo if col in datos_vista.columns]
                 
                 try:
                      idx_fecha = columnas_finales.index(FINAL_RENAMING_MAP[COL_FECHA_KEY])
-                     # Insertar la columna de la semana del gráfico después de la fecha
                      columnas_finales.insert(idx_fecha + 1, COL_FINAL_SEMANA_GRAFICO) 
                 except ValueError:
                      columnas_finales.append(COL_FINAL_SEMANA_GRAFICO)
@@ -586,17 +579,12 @@ else:
                 columnas_finales = [col for col in columnas_finales if col in datos_vista.columns] 
                 datos_vista = datos_vista[columnas_finales]
 
-                # 7. MOSTRAR TABLA
-                st.markdown("---")
-                
+                st.markdown("---") 
+
+                # MEJORA DE LAYOUT: Ocultar la tabla densa en un expander
                 if datos_vista.empty:
                     st.warning("No hay registros que coincidan con la selección de filtros.")
                 else:
-                    st.subheader(f"Tabla de Resultados Filtrados ({len(datos_vista)} registros) - Valores RAW")
-
-                    if st.session_state.rol.lower() == "admin":
-                        st.info(f"Como Administrador, ves **{len(datos_vista)}** registros filtrados.")
-                    else:
-                        st.info(f"Como Visualizador, ves **{len(datos_vista)}** registros filtrados.")
-
-                    st.dataframe(datos_vista, use_container_width=True)
+                    with st.expander(f"📑 Mostrar Tabla de Datos RAW ({len(datos_vista)} registros)", expanded=False):
+                        st.info(f"Como {st.session_state.rol}, puedes ver los **{len(datos_vista)}** registros filtrados en su formato original.")
+                        st.dataframe(datos_vista, use_container_width=True)
