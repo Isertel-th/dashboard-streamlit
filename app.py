@@ -447,7 +447,7 @@ else:
                     with col_metric_3:
                         st.metric(label="🛠️ Total Visitas Técnicas", value=f"{total_visitas_tecnicas:,}")
                     with col_metric_4:
-                        # MODIFICADO: Se eliminan delta y delta_color
+                        # Se elimina el 'delta' con el "Objetivo 80%"
                         st.metric(label="📈 Tasa de Instalación", value=f"{tasa_instalacion:.1%}") 
                     with col_metric_5:
                         st.metric(label="📉 Tasa de Visitas Técnicas", value=f"{tasa_visitas_tecnicas:.1%}")
@@ -547,7 +547,7 @@ else:
                             
                 # 7. TABLA DE RESULTADOS RAW (OCULTA EN UN EXPANDER)
                 
-                # PREPARACIÓN FINAL DE LA TABLA (Mismo código original)
+                # PREPARACIÓN FINAL DE LA TABLA
                 if not df_escala.empty:
                     datos_filtrados['DAY'] = datos_filtrados[COL_TEMP_DATETIME].dt.day.astype(int)
                     datos_filtrados['MONTH'] = datos_filtrados[COL_TEMP_DATETIME].dt.month.astype(int)
@@ -587,4 +587,51 @@ else:
                 else:
                     with st.expander(f"📑 Mostrar Tabla de Datos RAW ({len(datos_vista)} registros)", expanded=False):
                         st.info(f"Como {st.session_state.rol}, puedes ver los **{len(datos_vista)}** registros filtrados en su formato original.")
-                        st.dataframe(datos_vista, use_container_width=True)
+                        
+                        # --- NUEVOS CONTROLES DE ORDENAMIENTO ---
+                        st.subheader("Opciones de Ordenamiento de la Tabla")
+                        
+                        col_sort_by, col_sort_order = st.columns([2, 1])
+                        
+                        # Columnas clave para el ordenamiento
+                        sortable_columns = [
+                            "FECHA DE FINALIZACIÓN", 
+                            "TÉCNICO", 
+                            "UBICACIÓN", 
+                            "SEMANA FIJA (1-5)",
+                            "ORDEN",
+                            "TAREA"
+                        ]
+                        
+                        with col_sort_by:
+                            sort_column = st.selectbox(
+                                "Ordenar por columna:",
+                                options=[col for col in sortable_columns if col in datos_vista.columns],
+                                index=0, # Por defecto la FECHA DE FINALIZACIÓN
+                                key="sort_col"
+                            )
+                        
+                        with col_sort_order:
+                            sort_ascending_text = st.radio(
+                                "Orden:",
+                                options=["Descendente (Z-A, Más reciente)", "Ascendente (A-Z, Más antiguo)"],
+                                index=0, # Por defecto Descendente (útil para fechas)
+                                key="sort_order_radio"
+                            )
+
+                        # Convertir la selección del radio a valor booleano
+                        sort_ascending_bool = True if "Ascendente" in sort_ascending_text else False
+                        
+                        # Aplicar ordenamiento
+                        if sort_column in datos_vista.columns:
+                            datos_vista_sorted = datos_vista.sort_values(
+                                by=sort_column, 
+                                ascending=sort_ascending_bool,
+                                ignore_index=True,
+                                na_position='last' 
+                            )
+                        else:
+                            datos_vista_sorted = datos_vista # Si la columna no se encuentra, no ordenar
+                        # --- FIN DE CONTROLES DE ORDENAMIENTO ---
+                        
+                        st.dataframe(datos_vista_sorted, use_container_width=True)
