@@ -78,7 +78,7 @@ def set_page_config_and_style():
 /* >>> SOLUCIÓN ROBUSTA: Empujar TODO el contenido hacia abajo <<< */
 /* Afecta al contenedor principal de Streamlit para liberar el espacio del banner de deploy */
 .main {
-    padding-top: 60px !important; 
+    padding-top: 0px !important; 
 }
 /* ---------------------------------------------------------------------------------- */
 
