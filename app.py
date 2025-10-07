@@ -3,6 +3,98 @@ import pandas as pd
 import os
 import plotly.express as px
 
+# --- FUNCIÓN DE COMPACIDAD Y CONFIGURACIÓN ---
+def set_page_config_and_style():
+    # 1. Configurar layout en modo ancho ("wide") y título
+    st.set_page_config(layout="wide", page_title="Estadístico Isertel")
+    
+    # 2. Custom CSS para máxima compacidad y minimalismo
+    st.markdown("""
+        <style>
+        /* Ahorro vertical general: Reducir padding en el área principal de la aplicación */
+        .block-container {
+            padding-top: 1rem !important; /* Mínimo arriba */
+            padding-bottom: 0rem !important; /* Mínimo abajo */
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        
+        /* Reducir espacio vertical entre st.columns */
+        div[data-testid="stHorizontalBlock"] {
+            gap: 1rem !important; /* Espacio reducido entre columnas */
+        }
+        
+        /* Reducir padding interno en contenedores (st.container con borde) */
+        div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stContainer"]) > div[data-testid="stContainer"] { 
+            padding: 0.5rem !important; 
+        }
+        
+        /* Reducir espacio vertical para todos los títulos (H3, H4, H5) */
+        h3, h4, h5 {
+            margin-top: 0.5rem !important;
+            margin-bottom: 0.3rem !important;
+        }
+
+        /* Reducir espacio vertical en los widgets de formulario (select, date, multiselect) */
+        .stSelectbox, .stMultiSelect, .stDateInput, div[data-testid="stForm"] {
+            margin-bottom: 0.2rem !important;
+        }
+        
+        /* Reducir padding en los st.metric (las tarjetas de KPIs) */
+        div[data-testid="stMetric"] {
+            padding: 0.5rem 0 !important;
+        }
+
+        /* >>> MODIFICACIÓN PARA AUMENTAR EL TAMAÑO DE LAS MÉTRICAS <<< */
+        /* Aumenta el valor principal (el número) */
+        div[data-testid="stMetricValue"] {
+            font-size: 3rem; 
+        }
+        /* Aumenta la etiqueta/título */
+        div[data-testid="stMetricLabel"] {
+            font-size: 1.1rem; 
+        }
+        /* ----------------------------------------------------------- */
+        
+        /* Ajustar texto de los st.radio para que sea más compacto */
+        .st-emotion-cache-1px5e8u p { 
+            margin-bottom: 0.1rem;
+        }
+        
+/* CSS Específico de Header para hacerlo más delgado */
+div[data-testid="stSuccess"] {
+    padding: 0.5rem 1rem !important;
+    margin-bottom: 0px;
+    display: flex;
+    justify-content: flex-end;
+}
+.stButton>button {
+    height: 30px;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+}
+
+/* ---------------------------------------------------------------------------------- */
+/* >>> SOLUCIÓN: Empujar la cabecera de bienvenida/logout hacia abajo <<< */
+/* Este selector apunta a la fila de columnas que contiene el saludo y el botón de logout */
+/* Es importante probarlo, pero el primer stHorizontalBlock después del login es un buen objetivo */
+div[data-testid="stHorizontalBlock"]:first-of-type {
+    margin-top: 30px !important; /* Ajusta el valor según sea necesario (e.g., 30px, 40px) */
+}
+/* ---------------------------------------------------------------------------------- */
+
+/* Ajustar el título principal para que no quede demasiado pegado al header */
+.main [data-testid="stTitle"] {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# Llama a la función al inicio de tu script
+set_page_config_and_style() 
+
 # --- CONFIGURACIÓN DE ARCHIVOS Y CARPETAS ---
 MASTER_EXCEL = "datos.xlsx"
 USUARIOS_EXCEL = "usuarios.xlsx"
@@ -50,7 +142,6 @@ COL_SEGM_TIEMPO = '_SEGM_AÑO_MES_'
 COL_TIPO_INST = '_ES_INSTALACION_'
 COL_TIPO_VISITA = '_ES_VISITA_'
 
-st.set_page_config(page_title="Estadístico Isertel", layout="wide")
 
 # --- FUNCIONES DE LIMPIEZA PARA FILTROS ---
 def clean_tecnico(tecnico):
@@ -206,46 +297,13 @@ if not st.session_state.login:
 else:
     # --- Interfaz Principal (CABECERA SUPERIOR DERECHA, DELGADA Y ANCHA) ---
     
-    # 1. CSS para reducir el padding/altura de elementos superiores y ajustar el layout del banner
-    st.markdown("""
-        <style>
-            /* 1. Elementos de la cabecera (Bienvenida y Logout) */
-            /* Apuntar a la alerta de st.success y reducir el padding vertical (hacer más delgado) */
-            div[data-testid="stSuccess"] {
-                padding: 0.5rem 1rem !important; /* Ajustar padding vertical */
-                margin-bottom: 0px; /* Reducir margen inferior */
-                display: flex;
-                justify-content: flex-end; /* Alinear el contenido del éxito a la derecha */
-            }
-            /* Apuntar al botón de st.button para reducir el padding (hacer más delgado) */
-            .stButton>button {
-                height: 30px; /* Altura más pequeña */
-                padding-top: 5px !important;
-                padding-bottom: 5px !important;
-            }
-            /* Asegurar que el mensaje de bienvenida se pegue a la derecha de su columna */
-            div[data-testid="stColumn"]:nth-child(2) > div > div[data-testid="stSuccess"] {
-                justify-content: flex-end;
-            }
-
-            /* 2. Banner de Filtros (Solo ajustes de layout y separación) */
-            /* Reducir el margen superior del banner para que quede "pegado" al título */
-            div[data-testid="stVerticalBlock"]:has(div[data-testid="stHeader"]) + div[data-testid="stVerticalBlock"] {
-                margin-top: -30px; 
-            }
-            /* Ajustar el padding interno del banner para hacerlo más compacto */
-            div[data-testid="stVerticalBlock"]:has(div[data-testid="stHeader"]) + div[data-testid="stVerticalBlock"] > div[data-testid="stContainer"] {
-                padding: 10px 15px !important; 
-            }
-        </style>
-    """, unsafe_allow_html=True)
+    # 1. El CSS de compacidad ya está en set_page_config_and_style()
     
     # 2. Usamos columnas para colocar el mensaje y el botón en la esquina superior derecha
-    # [8] para espaciador a la izquierda (push to right), [2] para Bienvenida (más ancha), [1] para Logout (más compacta)
     col_spacer, col_welcome, col_logout = st.columns([8, 2, 1]) 
 
     with col_welcome:
-        # st.success para el mensaje de bienvenida (se aplica el CSS anterior)
+        # st.success para el mensaje de bienvenida (se aplica el CSS de compacidad)
         st.success(f"Bienvenido {st.session_state.usuario} ({st.session_state.rol})")
         
     with col_logout:
@@ -257,7 +315,7 @@ else:
             use_container_width=True
         )
 
-    # El título principal se mantiene en el cuerpo, después de la información de sesión
+    # El título principal se mantiene en el cuerpo
     st.title("📊 Estadístico Isertel")
 
     # --- LÓGICA DE CARGA Y COMBINACIÓN DE DATOS ---
@@ -268,7 +326,7 @@ else:
     df_list = []
     
     if archivos_para_combinar_nombres: 
-        # Mover la info de archivos cargados al cuerpo principal (sin st.sidebar)
+        # Mover la info de archivos cargados al cuerpo principal
         st.info(f"💾 **{num_archivos_cargados}** archivo(s) cargado(s) y combinado(s).")
         archivos_completos = [os.path.join(UPLOAD_FOLDER, f) for f in archivos_para_combinar_nombres]
         
@@ -325,7 +383,7 @@ else:
             st.error(f"Error al combinar o leer archivos de la carpeta de subidas: {e}")
             datos = None
     else:
-        # Mover la advertencia de no archivos cargados al cuerpo principal (sin st.sidebar)
+        # Mover la advertencia de no archivos cargados al cuerpo principal
         st.warning("⚠️ No hay archivos cargados.")
         try:
             datos = pd.read_excel(MASTER_EXCEL)
@@ -413,13 +471,15 @@ else:
             
             st.markdown("---")
 
-    # --- PESTAÑA DEL DASHBOARD (Disponible para ADMIN y USER) ---
+    # ----------------------------------------------------------------------
+    # --- PESTAÑA DEL DASHBOARD (Optimización de Layout) ---
+    # ----------------------------------------------------------------------
     with tab_dashboard:
         if datos is None or datos.empty:
             st.warning("No hay datos para mostrar.")
         else:
             
-            # 1. PREPARACIÓN DE DATOS BASE Y CONVERSIÓN DE FECHA
+            # 1. PREPARACIÓN DE DATOS BASE Y CONVERSIÓN DE FECHA (Lógica Preservada)
             datos_filtrados = datos.copy() 
             
             datos_filtrados[COL_TEMP_DATETIME] = pd.to_datetime(datos_filtrados[COL_FECHA_KEY], errors='coerce')
@@ -431,11 +491,11 @@ else:
                 pass 
             else: # Solo si hay datos válidos, procedemos con filtros y gráficos
                 
-                # --- Contenedor de Filtros (NUEVO BANNER HORIZONTAL) ---
-                with st.container(border=True): # <--- Este contenedor simulará el banner con el estilo por defecto
+                # --- Contenedor de Filtros (MÁXIMA HORIZONTALIDAD) ---
+                with st.container(border=True): 
                     
-                    # 2. FILTRO DE RANGO DE FECHAS
-                    st.subheader(f"📅 Rango de {COL_FECHA_DESCRIPTIVA} y Filtros de Segmentación")
+                    # Título compacto (H4 en lugar de st.subheader)
+                    st.markdown("#### 📅 Filtros por Fechas y Segmentación") 
                     
                     # Usamos st.columns para distribuir los filtros horizontalmente en el banner
                     col_desde, col_hasta, col_ciu, col_tec = st.columns([1.5, 1.5, 2, 2]) 
@@ -462,7 +522,7 @@ else:
                         (datos_filtrados[COL_TEMP_DATETIME] <= filtro_fin)
                     ].copy()
 
-                    # --- PRE-PROCESAMIENTO PARA FILTROS (solo para las opciones de los desplegables) ---
+                    # --- PRE-PROCESAMIENTO PARA FILTROS (Lógica Preservada) ---
                     if COL_TECNICO_KEY in datos_filtrados.columns:
                         datos_filtrados[COL_FILTRO_TECNICO] = datos_filtrados[COL_TECNICO_KEY].astype(str).apply(clean_tecnico)
                     if COL_CIUDAD_KEY in datos_filtrados.columns:
@@ -470,6 +530,7 @@ else:
                     
                     df_all = datos_filtrados.copy()
 
+                    # Funciones internas para multiselect (Lógica Preservada)
                     @st.cache_data
                     def get_multiselect_options(df, col_key_filtro):
                         """Obtiene opciones únicas (limpias) de una columna para el multiselect."""
@@ -523,16 +584,18 @@ else:
                     opciones_tecnico = get_multiselect_options(df_domain_tec, COL_FILTRO_TECNICO)
 
                     with col_ciu:
+                        # Se ha simplificado el label
                         filtro_ciudad = st.multiselect(
-                            f"Seleccionar **{COL_CIUDAD_DESCRIPTIVA}** (Limpio):", 
+                            f"Seleccionar **{COL_CIUDAD_DESCRIPTIVA}**:", 
                             options=opciones_ciudad,
                             default=filtro_ciudad_actual, 
                             key='multiselect_ubicacion'
                         )
                         
                     with col_tec:
+                        # Se ha simplificado el label
                         filtro_tecnico = st.multiselect(
-                            f"Seleccionar **{COL_TECNICO_DESCRIPTIVA}** (Limpio):", 
+                            f"Seleccionar **{COL_TECNICO_DESCRIPTIVA}**:", 
                             options=opciones_tecnico,
                             default=filtro_tecnico_actual, 
                             key='multiselect_tecnico'
@@ -545,17 +608,16 @@ else:
                     datos_filtrados = df_final
                 # --- FIN DEL BANNER DE FILTROS ---
                 
-                # NUEVO SEPARADOR VISUAL: Separa los filtros de las métricas/resultados
-                st.markdown("---")
+                st.markdown("---") # Separador visual
 
-                # 4. CÁLCULO Y VISTA DEL MENÚ CONTEXTUAL (Métricas)
-                st.subheader("💡 Métricas Clave y Desempeño") 
-                
-                # --- TARJETA DE KPIS ---
+                # 4. CÁLCULO Y VISTA DEL MENÚ CONTEXTUAL (Métricas) + TOP 5 PIE CHART
                 with st.container(border=True): # <--- CONTENEDOR TIPO TARJETA
+                    # Título compacto
+                    st.markdown("#### 💡 Métricas Clave y Top Técnicos") 
+                    
                     total_registros = len(datos_filtrados)
                     
-                    # Cálculos
+                    # Cálculos (Lógica Preservada)
                     if COL_TIPO_ORDEN_KEY in datos_filtrados.columns:
                         total_instalaciones = len(datos_filtrados[
                             datos_filtrados[COL_TIPO_ORDEN_KEY].astype(str).str.contains('INSTALACION', case=False, na=False)
@@ -570,35 +632,79 @@ else:
                     tasa_instalacion = total_instalaciones / total_registros if total_registros > 0 else 0.0
                     tasa_visitas_tecnicas = total_visitas_tecnicas / total_registros if total_registros > 0 else 0.0
 
-                    # Columnas para las métricas (5 columnas)
-                    col_metric_1, col_metric_2, col_metric_3, col_metric_4, col_metric_5 = st.columns(5)
+                    # --- FILA 1: TOTALES Y GRÁFICO ---
+                    # 3 columnas para Totales y 1 columna ancha para el Gráfico
+                    col_metric_1, col_metric_2, col_metric_3, col_top_tec = st.columns([1.5, 1.5, 1.5, 2.5])
 
                     with col_metric_1:
                         st.metric(label="📦 Total de Ordenes", value=f"{total_registros:,}")
                     with col_metric_2:
+                        # NOTA: Se eliminó el delta para borrar el color verde del porcentaje
                         st.metric(label="✅ Total Instalaciones", value=f"{total_instalaciones:,}")
                     with col_metric_3:
+                        # NOTA: Se eliminó el delta para que el formato de las 3 métricas superiores sea idéntico (solo valor y etiqueta)
                         st.metric(label="🛠️ Total Visitas Técnicas", value=f"{total_visitas_tecnicas:,}")
-                    with col_metric_4:
-                        # Se elimina el 'delta' con el "Objetivo 80%"
+                    
+                    # 6. GRÁFICO DE TAREAS POR TÉCNICO (PIE CHART) en la columna ancha
+                    with col_top_tec:
+                        st.markdown("##### Distribución del Top 5")
+                        
+                        if COL_FILTRO_TECNICO in datos_filtrados.columns and total_registros > 0:
+                            top_tecnicos = datos_filtrados[COL_FILTRO_TECNICO].value_counts().reset_index()
+                            top_tecnicos.columns = ['Técnico', 'Total Tareas']
+                            top_tecnicos = top_tecnicos.head(5)
+                            
+                            fig_pie = px.pie(
+                                top_tecnicos, 
+                                values='Total Tareas', 
+                                names='Técnico', 
+                                title='Distribución del Top 5',
+                                hole=.3, 
+                                color_discrete_sequence=px.colors.qualitative.Pastel 
+                            )
+                            # Ajuste de layout para hacer el gráfico más compacto y alineado
+                            fig_pie.update_layout(
+                                showlegend=True, # Mantenemos la leyenda visible
+                                margin=dict(l=0, r=0, t=20, b=0),
+                                height=300 # Altura ajustada
+                            ) 
+                            st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
+                        else:
+                            st.info("Datos insuficientes para Top Técnico.")
+
+                    # --- FILA 2: TASAS DE PORCENTAJE (Bajo los Totales) ---
+                    # 3 columnas con el mismo ancho de los totales, y el resto espaciador
+                    col_tasa_inst_spacer, col_tasa_inst, col_tasa_visita, col_tasa_spacer = st.columns([1.5, 1.5, 1.5, 2.5]) 
+                    
+                    # col_tasa_inst_spacer queda vacío
+
+                    with col_tasa_inst:
+                        # Tasa de Instalación (VISIBLE y GRANDE)
                         st.metric(label="📈 Tasa de Instalación", value=f"{tasa_instalacion:.1%}") 
-                    with col_metric_5:
-                        st.metric(label="📉 Tasa de Visitas Técnicas", value=f"{tasa_visitas_tecnicas:.1%}")
+
+                    with col_tasa_visita:
+                        # Tasa de Visitas Técnicas (VISIBLE y GRANDE)
+                        st.metric(label="📉 Tasa Visitas Técnicas", value=f"{tasa_visitas_tecnicas:.1%}") 
+                    
+                    # El resto del espacio queda vacío (col_tasa_spacer)
+
                 
+                st.markdown("---") # Separador visual
+
+                # --- LAYOUT PRINCIPAL: 2x2 GRÁFICOS (Barra Fija y Comparación) ---
+                col_grafico_barra, col_comparacion = st.columns(2) 
                 
-                # --- LAYOUT PRINCIPAL: GRÁFICO (Columna 1) y OTROS (Columna 2) ---
-                col_grafico, col_otros = st.columns([3, 1])
-                
-                # 5. GRÁFICO DE TAREAS REALIZADAS POR SEGMENTO FIJO (BARRA)
-                with col_grafico:
+                # 5. GRÁFICO DE TAREAS REALIZADAS POR SEGMENTO FIJO (COLUMNA IZQUIERDA)
+                with col_grafico_barra:
                     with st.container(border=True): # <--- Tarjeta para el Gráfico
-                        st.subheader("📊 Tareas Realizadas: Últimos 5 Segmentos Fijos")
+                        st.markdown("#### 📊 Tareas Realizadas: Segmentos Fijos")
 
                         df_escala = pd.DataFrame() 
                         
                         if total_registros > 0:
                             
                             datos_temp = datos_filtrados.copy()
+                            # ... (Lógica de preparación de datos para el gráfico de barras - Preservada) ...
                             datos_temp['DAY'] = datos_temp[COL_TEMP_DATETIME].dt.day.astype(int, errors='ignore')
                             datos_temp['MONTH'] = datos_temp[COL_TEMP_DATETIME].dt.month.astype(int, errors='ignore')
                             datos_temp['YEAR'] = datos_temp[COL_TEMP_DATETIME].dt.year.astype(int, errors='ignore')
@@ -633,7 +739,7 @@ else:
                             
                             conteo_5_segmentos['Total_Tareas'] = conteo_5_segmentos['Total_Tareas'].astype(int)
                             
-                            # GENERAR GRÁFICO
+                            # GENERAR GRÁFICO (Lógica Preservada)
                             fig = px.bar(
                                 conteo_5_segmentos, 
                                 x='Segmento_Label', 
@@ -659,196 +765,130 @@ else:
                             st.info("No hay datos filtrados para generar el gráfico semanal.")
 
                 
-                # --- SECCIÓN DE GRÁFICOS DE COMPARACIÓN ---
-                
-                # LÓGICA DE VISTA:
-                # 1. Si SELECCIONA UNA SOLA CIUDAD: Mostrar Comparación por TÉCNICO dentro de esa ciudad.
-                # 2. Si NO SELECCIONA UNA SOLA CIUDAD: Mostrar Comparación por CIUDAD (vista general).
-                
-                if len(filtro_ciudad) == 1 and COL_FILTRO_TECNICO in datos_filtrados.columns and len(datos_filtrados[COL_FILTRO_TECNICO].unique()) >= 1:
+                # --- SECCIÓN DE GRÁFICOS DE COMPARACIÓN (COLUMNA DERECHA) ---
+                with col_comparacion:
                     
-                    # --- VISTA 1: COMPARACIÓN POR TÉCNICO (Dentro de 1 Ciudad Seleccionada) ---
-                    df_comparacion = prepare_comparison_data(datos_filtrados)
-                    
-                    if not df_comparacion.empty and (df_comparacion['Total_Instalaciones'].sum() > 0 or df_comparacion['Total_Visitas'].sum() > 0):
+                    # LÓGICA DE VISTA: (Preservada)
+                    # 1. Si SELECCIONA UNA SOLA CIUDAD: Mostrar Comparación por TÉCNICO dentro de esa ciudad.
+                    if len(filtro_ciudad) == 1 and COL_FILTRO_TECNICO in datos_filtrados.columns and len(datos_filtrados[COL_FILTRO_TECNICO].unique()) >= 1:
                         
-                        ciudad_seleccionada = filtro_ciudad[0]
-                        st.markdown("---")
-                        st.subheader(f"📊 Rendimiento por **Técnico** en: **{ciudad_seleccionada}**")
+                        # --- VISTA 1: COMPARACIÓN POR TÉCNICO (2 GRÁFICOS LADO A LADO) ---
+                        df_comparacion = prepare_comparison_data(datos_filtrados) # Lógica Preservada
                         
-                        # GRÁFICO 1: COMPARACIÓN DE INSTALACIONES (TÉCNICO)
-                        with st.container(border=True):
-                            if df_comparacion['Total_Instalaciones'].sum() > 0:
+                        if not df_comparacion.empty and (df_comparacion['Total_Instalaciones'].sum() > 0 or df_comparacion['Total_Visitas'].sum() > 0):
+                            
+                            ciudad_seleccionada = filtro_ciudad[0]
+                            st.markdown(f"#### 📊 Rendimiento por **Técnico** en: **{ciudad_seleccionada}**")
+                            
+                            # Usamos columnas INTERNAS para poner los dos gráficos lado a lado
+                            col_inst_tec, col_visita_tec = st.columns(2) 
+                            
+                            # GRÁFICO 1: COMPARACIÓN DE INSTALACIONES (TÉCNICO)
+                            with col_inst_tec:
+                                with st.container(border=True):
+                                    st.markdown("##### Instalaciones por Técnico") # Título más pequeño
+                                    if df_comparacion['Total_Instalaciones'].sum() > 0:
+                                        
+                                        fig_inst = px.line(
+                                            df_comparacion, x=COL_FILTRO_TECNICO, y='Total_Instalaciones',
+                                            title='Instalaciones por Técnico', # Título más corto para ahorrar espacio
+                                            labels={COL_FILTRO_TECNICO: 'Técnico', 'Total_Instalaciones': 'Instalaciones'},
+                                            markers=True, text='Total_Instalaciones', height=300 # Altura reducida
+                                        )
+                                        
+                                        fig_inst.update_layout(xaxis_title='Técnico', yaxis_title='Total de Inst.', uniformtext_minsize=8, uniformtext_mode='hide', margin=dict(t=30, l=10, r=10, b=10)) 
+                                        fig_inst.update_traces(textposition="top center") 
+                                        
+                                        st.plotly_chart(fig_inst, use_container_width=True)
+                                    else:
+                                        st.info("No hay **Instalaciones** registradas.")
+                            
+                            # GRÁFICO 2: COMPARACIÓN DE VISITAS TÉCNICAS (TÉCNICO)
+                            with col_visita_tec:
+                                with st.container(border=True):
+                                    st.markdown("##### Visitas Técnicas por Técnico") # Título más pequeño
+                                    if df_comparacion['Total_Visitas'].sum() > 0:
+                                        
+                                        fig_visita = px.line(
+                                            df_comparacion, x=COL_FILTRO_TECNICO, y='Total_Visitas',
+                                            title='Visitas Técnicas por Técnico', # Título más corto para ahorrar espacio
+                                            labels={COL_FILTRO_TECNICO: 'Técnico', 'Total_Visitas': 'Visitas Técnicas'},
+                                            markers=True, text='Total_Visitas', height=300 # Altura reducida
+                                        )
+                                        
+                                        fig_visita.update_layout(xaxis_title='Técnico', yaxis_title='Total de Visitas', uniformtext_minsize=8, uniformtext_mode='hide', margin=dict(t=30, l=10, r=10, b=10)) 
+                                        fig_visita.update_traces(textposition="top center") 
+                                        
+                                        st.plotly_chart(fig_visita, use_container_width=True)
+                                    else:
+                                        st.info("No hay **Visitas Técnicas** registradas.")
+                                        
+                        else:
+                            st.info("💡 No hay datos de Instalaciones o Visitas Técnicas para mostrar en la comparación por técnico con los filtros aplicados.")
                                 
-                                fig_inst = px.line(
-                                    df_comparacion, 
-                                    x=COL_FILTRO_TECNICO, 
-                                    y='Total_Instalaciones',
-                                    title='Comparación de **Instalaciones** por Técnico',
-                                    labels={
-                                        COL_FILTRO_TECNICO: 'Técnico', 
-                                        'Total_Instalaciones': 'Instalaciones Realizadas'
-                                    },
-                                    markers=True,
-                                    text='Total_Instalaciones' 
-                                )
-                                
-                                fig_inst.update_layout(
-                                    xaxis_title='Técnico',
-                                    yaxis_title='Total de Instalaciones',
-                                    uniformtext_minsize=8, 
-                                    uniformtext_mode='hide', 
-                                )
-                                fig_inst.update_traces(textposition="top center") 
-                                
-                                st.plotly_chart(fig_inst, use_container_width=True)
-                            else:
-                                st.info("No hay **Instalaciones** registradas para los filtros seleccionados.")
+                    else: 
+                        # --- VISTA 2: COMPARACIÓN POR CIUDAD (2 GRÁFICOS LADO A LADO) ---
+                        df_comparacion_city = prepare_city_comparison_data(datos_filtrados) # Lógica Preservada
                         
-                        st.markdown("---") # Separador visual entre los dos gráficos apilados
+                        if not df_comparacion_city.empty and (df_comparacion_city['Total_Instalaciones'].sum() > 0 or df_comparacion_city['Total_Visitas'].sum() > 0):
+                            
+                            st.markdown("#### 📊 Rendimiento por **Ubicación/Ciudad**")
+                            
+                            # Usamos columnas INTERNAS para poner los dos gráficos lado a lado
+                            col_inst_city, col_visita_city = st.columns(2)
+                            
+                            # GRÁFICO 1: COMPARACIÓN DE INSTALACIONES (CIUDAD)
+                            with col_inst_city:
+                                with st.container(border=True):
+                                    st.markdown("##### Instalaciones por Ciudad") # Título más pequeño
+                                    if df_comparacion_city['Total_Instalaciones'].sum() > 0:
+                                        
+                                        fig_inst_city = px.line(
+                                            df_comparacion_city, x=COL_FILTRO_CIUDAD, y='Total_Instalaciones',
+                                            title='Instalaciones por Ciudad',
+                                            labels={COL_FILTRO_CIUDAD: 'Ciudad', 'Total_Instalaciones': 'Instalaciones'},
+                                            markers=True, text='Total_Instalaciones', height=300
+                                        )
+                                        
+                                        fig_inst_city.update_layout(xaxis_title='Ubicación/Ciudad', yaxis_title='Total de Inst.', uniformtext_minsize=8, uniformtext_mode='hide', margin=dict(t=30, l=10, r=10, b=10)) 
+                                        fig_inst_city.update_traces(textposition="top center") 
+                                        
+                                        st.plotly_chart(fig_inst_city, use_container_width=True)
+                                    else:
+                                        st.info("No hay **Instalaciones** registradas.")
+                            
+                            # GRÁFICO 2: COMPARACIÓN DE VISITAS TÉCNICAS (CIUDAD)
+                            with col_visita_city:
+                                with st.container(border=True):
+                                    st.markdown("##### Visitas Técnicas por Ciudad") # Título más pequeño
+                                    if df_comparacion_city['Total_Visitas'].sum() > 0:
+                                        
+                                        fig_visita_city = px.line(
+                                            df_comparacion_city, x=COL_FILTRO_CIUDAD, y='Total_Visitas',
+                                            title='Visitas Técnicas por Ciudad',
+                                            labels={COL_FILTRO_CIUDAD: 'Ciudad', 'Total_Visitas': 'Visitas Técnicas'},
+                                            markers=True, text='Total_Visitas', height=300
+                                        )
+                                        
+                                        fig_visita_city.update_layout(xaxis_title='Ubicación/Ciudad', yaxis_title='Total de Visitas', uniformtext_minsize=8, uniformtext_mode='hide', margin=dict(t=30, l=10, r=10, b=10)) 
+                                        fig_visita_city.update_traces(textposition="top center") 
+                                        
+                                        st.plotly_chart(fig_visita_city, use_container_width=True)
+                                    else:
+                                        st.info("No hay **Visitas Técnicas** registradas.")
 
-                        # GRÁFICO 2: COMPARACIÓN DE VISITAS TÉCNICAS (TÉCNICO)
-                        with st.container(border=True):
-                            if df_comparacion['Total_Visitas'].sum() > 0:
-                                
-                                fig_visita = px.line(
-                                    df_comparacion, 
-                                    x=COL_FILTRO_TECNICO, 
-                                    y='Total_Visitas',
-                                    title='Comparación de **Visitas Técnicas** por Técnico',
-                                    labels={
-                                        COL_FILTRO_TECNICO: 'Técnico', 
-                                        'Total_Visitas': 'Visitas Técnicas Realizadas'
-                                    },
-                                    markers=True,
-                                    text='Total_Visitas' 
-                                )
-                                
-                                fig_visita.update_layout(
-                                    xaxis_title='Técnico',
-                                    yaxis_title='Total de Visitas Técnicas',
-                                    uniformtext_minsize=8, 
-                                    uniformtext_mode='hide', 
-                                )
-                                fig_visita.update_traces(textposition="top center") 
-                                
-                                st.plotly_chart(fig_visita, use_container_width=True)
-                            else:
-                                st.info("No hay **Visitas Técnicas** registradas para los filtros seleccionados.")
-                                
-                    else:
-                        st.info("💡 No hay datos de Instalaciones o Visitas Técnicas para mostrar en la comparación por técnico con los filtros aplicados.")
-                                
-                else: # len(filtro_ciudad) != 1 (Vista Global por Ciudad o si no hay filtros aplicados)
-                    
-                    # --- VISTA 2: COMPARACIÓN POR CIUDAD (Vista Global) ---
-                    df_comparacion_city = prepare_city_comparison_data(datos_filtrados)
-                    
-                    if not df_comparacion_city.empty and (df_comparacion_city['Total_Instalaciones'].sum() > 0 or df_comparacion_city['Total_Visitas'].sum() > 0):
-                        
-                        st.markdown("---")
-                        st.subheader("📊 Rendimiento por **Ubicación/Ciudad**")
-                        
-                        # GRÁFICO 1: COMPARACIÓN DE INSTALACIONES (CIUDAD)
-                        with st.container(border=True):
-                            if df_comparacion_city['Total_Instalaciones'].sum() > 0:
-                                
-                                fig_inst_city = px.line(
-                                    df_comparacion_city, 
-                                    x=COL_FILTRO_CIUDAD, 
-                                    y='Total_Instalaciones',
-                                    title='Total de **Instalaciones** por Ciudad (Todas las Ciudades Filtradas)',
-                                    labels={
-                                        COL_FILTRO_CIUDAD: 'Ubicación/Ciudad', 
-                                        'Total_Instalaciones': 'Instalaciones Realizadas'
-                                    },
-                                    markers=True,
-                                    text='Total_Instalaciones' 
-                                )
-                                
-                                fig_inst_city.update_layout(
-                                    xaxis_title='Ubicación/Ciudad',
-                                    yaxis_title='Total de Instalaciones',
-                                    uniformtext_minsize=8, 
-                                    uniformtext_mode='hide', 
-                                    xaxis={'categoryorder':'category ascending'} # Asegura que la línea se dibuje en orden alfabético de ciudades
-                                )
-                                fig_inst_city.update_traces(textposition="top center") 
-                                
-                                st.plotly_chart(fig_inst_city, use_container_width=True)
-                            else:
-                                st.info("No hay **Instalaciones** registradas para los filtros seleccionados.")
-                        
-                        st.markdown("---") # Separador visual entre los dos gráficos apilados
-
-                        # GRÁFICO 2: COMPARACIÓN DE VISITAS TÉCNICAS (CIUDAD)
-                        with st.container(border=True):
-                            if df_comparacion_city['Total_Visitas'].sum() > 0:
-                                
-                                fig_visita_city = px.line(
-                                    df_comparacion_city, 
-                                    x=COL_FILTRO_CIUDAD, 
-                                    y='Total_Visitas',
-                                    title='Total de **Visitas Técnicas** por Ciudad (Todas las Ciudades Filtradas)',
-                                    labels={
-                                        COL_FILTRO_CIUDAD: 'Ubicación/Ciudad', 
-                                        'Total_Visitas': 'Visitas Técnicas Realizadas'
-                                    },
-                                    markers=True,
-                                    text='Total_Visitas' 
-                                )
-                                
-                                fig_visita_city.update_layout(
-                                    xaxis_title='Ubicación/Ciudad',
-                                    yaxis_title='Total de Visitas Técnicas',
-                                    uniformtext_minsize=8, 
-                                    uniformtext_mode='hide', 
-                                    xaxis={'categoryorder':'category ascending'} # Asegura que la línea se dibuje en orden alfabético de ciudades
-                                )
-                                fig_visita_city.update_traces(textposition="top center") 
-                                
-                                st.plotly_chart(fig_visita_city, use_container_width=True)
-                            else:
-                                st.info("No hay **Visitas Técnicas** registradas para los filtros seleccionados.")
-
-                        # AÑADIR MENSAJE PARA CAMBIAR A VISTA DE TÉCNICO
-                        st.markdown("---")
-                        st.info("💡 Actualmente viendo el rendimiento por **Ciudad**. Selecciona **exactamente UNA ubicación** en el filtro superior para ver la comparación de rendimiento por técnico.")
-                        
-                    else:
-                        st.info("💡 No hay datos de Instalaciones o Visitas Técnicas para mostrar en la comparación por ciudad con los filtros aplicados.")
+                            st.info("💡 Selecciona **una ubicación** para ver la comparación de rendimiento por técnico.")
+                            
+                        else:
+                            st.info("💡 No hay datos de Instalaciones o Visitas Técnicas para mostrar en la comparación por ciudad con los filtros aplicados.")
 
                 # --- FIN DE GRÁFICOS DE COMPARACIÓN ---
-
-
-                # 6. GRÁFICO DE TAREAS POR TÉCNICO (COLUMNA DERECHA)
-                with col_otros:
-                    with st.container(border=True): # <--- Tarjeta para el Top Técnico
-                        st.subheader("Top 5 Técnicos")
-                        
-                        if COL_FILTRO_TECNICO in datos_filtrados.columns and total_registros > 0:
-                            top_tecnicos = datos_filtrados[COL_FILTRO_TECNICO].value_counts().reset_index()
-                            top_tecnicos.columns = ['Técnico', 'Total Tareas']
-                            top_tecnicos = top_tecnicos.head(5)
                             
-                            # Gráfico circular (Pie Chart) para distribución
-                            fig_pie = px.pie(
-                                top_tecnicos, 
-                                values='Total Tareas', 
-                                names='Técnico', 
-                                title='Distribución del Top 5',
-                                hole=.3, 
-                                color_discrete_sequence=px.colors.qualitative.Pastel 
-                            )
-                            fig_pie.update_layout(showlegend=False, margin=dict(l=10, r=10, t=50, b=10))
-                            st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
-                        else:
-                            st.info("Datos insuficientes para Top Técnico.")
-                            
+                st.markdown("---") # Separador visual
+
                 # 7. TABLA DE RESULTADOS RAW (OCULTA EN UN EXPANDER)
                 
-                # PREPARACIÓN FINAL DE LA TABLA
-                # Re-calculamos estas columnas para la tabla si se han perdido por NaT
+                # PREPARACIÓN FINAL DE LA TABLA (Lógica Preservada)
                 if 'DAY' not in datos_filtrados.columns:
                     datos_filtrados['DAY'] = datos_filtrados[COL_TEMP_DATETIME].dt.day.astype(int, errors='ignore')
                     datos_filtrados['MONTH'] = datos_filtrados[COL_TEMP_DATETIME].dt.month.astype(int, errors='ignore')
@@ -884,8 +924,6 @@ else:
                 columnas_finales = [col for col in columnas_finales if col in datos_vista.columns] 
                 datos_vista = datos_vista[columnas_finales]
 
-                st.markdown("---") 
-
                 # MEJORA DE LAYOUT: Ocultar la tabla densa en un expander
                 if datos_vista.empty:
                     st.warning("No hay registros que coincidan con la selección de filtros.")
@@ -893,8 +931,8 @@ else:
                     with st.expander(f"📑 Mostrar Tabla de Datos RAW ({len(datos_vista)} registros)", expanded=False):
                         st.info(f"Como {st.session_state.rol}, puedes ver los **{len(datos_vista)}** registros filtrados en su formato original.")
                         
-                        # --- NUEVOS CONTROLES DE ORDENAMIENTO ---
-                        st.subheader("Opciones de Ordenamiento de la Tabla")
+                        # --- CONTROLES DE ORDENAMIENTO (COMPACTOS) ---
+                        st.markdown("##### Opciones de Ordenamiento de la Tabla") # Título más pequeño
                         
                         col_sort_by, col_sort_order = st.columns([2, 1])
                         
@@ -917,6 +955,7 @@ else:
                             )
                         
                         with col_sort_order:
+                            # Se usa st.radio para mejor compacidad
                             sort_ascending_text = st.radio(
                                 "Orden:",
                                 options=["Descendente (Z-A, Más reciente)", "Ascendente (A-Z, Más antiguo)"],
@@ -927,7 +966,7 @@ else:
                         # Convertir la selección del radio a valor booleano
                         sort_ascending_bool = True if "Ascendente" in sort_ascending_text else False
                         
-                        # Aplicar ordenamiento
+                        # Aplicar ordenamiento (Lógica Preservada)
                         if sort_column in datos_vista.columns:
                             datos_vista_sorted = datos_vista.sort_values(
                                 by=sort_column, 
