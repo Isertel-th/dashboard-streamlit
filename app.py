@@ -88,13 +88,13 @@ def set_page_config_and_style():
             margin-bottom: 0.5rem;
         }
 
-        /* NUEVO CÓDIGO: Bajar la fila de bienvenida/cerrar sesión AUN MÁS */
+        /* AJUSTE FINAL: Bajar la fila de bienvenida/cerrar sesión 1CM MÁS */
         .header-push-down {
-            margin-top: 15px !important; /* Se agrega un margen superior al bloque para bajarlo */
+            margin-top: 45px !important; /* Aumentado de 15px a 45px */
         }
         
         </style>
-        """, unsafe_allow_html=True) # <--- ¿Falta una comilla o un triple-comilla anterior a esta línea?
+        """, unsafe_allow_html=True) 
 
 # Llama a la función al inicio de tu script
 set_page_config_and_style() 
@@ -303,7 +303,7 @@ else:
     
     # 1. El CSS de compacidad ya está en set_page_config_and_style()
     
-    # NUEVO: Abrir un bloque con la clase CSS para bajar la fila
+    # ABRIR BLOQUE: Usar la clase CSS para bajar la fila con el margen superior de 45px
     st.markdown('<div class="header-push-down">', unsafe_allow_html=True)
     
     # 2. Usamos columnas para colocar el mensaje y el botón en la esquina superior derecha
@@ -322,7 +322,7 @@ else:
             use_container_width=True
         )
 
-    # NUEVO: Cerrar el bloque
+    # CERRAR BLOQUE
     st.markdown('</div>', unsafe_allow_html=True)
 
     # El título principal se mantiene en el cuerpo
