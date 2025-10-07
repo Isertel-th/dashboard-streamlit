@@ -67,6 +67,7 @@ def set_page_config_and_style():
             margin-bottom: 0px;
             display: flex;
             justify-content: flex-end; 
+            margin-top: 1rem !important; /* SOLUCIÓN: Empuja el mensaje de bienvenida hacia abajo */
         }
 .stButton>button {
     height: 30px;
@@ -75,17 +76,19 @@ def set_page_config_and_style():
 }
 
 /* ---------------------------------------------------------------------------------- */
-/* >>> SOLUCIÓN ROBUSTA: Empujar TODO el contenido hacia abajo <<< */
-/* Afecta al contenedor principal de Streamlit para liberar el espacio del banner de deploy */
+/* SOLUCIÓN FINAL: Ajustar el margen superior para que el contenido pase */
+/* por debajo de la toolbar fija de Streamlit (Share, menú, etc.). */
 .main {
-    padding-top: 0px !important; 
+    padding-top: 0rem !important; /* Aseguramos que el padding interno es 0 */
+    margin-top: 1.5rem !important; /* CLAVE: Empuja el contenedor principal hacia abajo */
 }
 /* ---------------------------------------------------------------------------------- */
 
 /* Ajustar el título principal para que no quede demasiado pegado al header */
 .main [data-testid="stTitle"] {
-    margin-top: 1rem;
-    margin-bottom: 0.5rem;
+    margin-top: 0rem !important; /* Se reduce a 0 para que quede bien posicionado */
+    margin-bottom: 0.2rem !important;
+    padding-left: 1rem !important; 
 }
 
 </style>
@@ -975,6 +978,5 @@ else:
                             )
                         else:
                             datos_vista_sorted = datos_vista # Si la columna no se encuentra, no ordenar
-                        # --- FIN DE CONTROLES DE ORDENAMIENTO ---
-                        
+                        # --- FIN DE CONTROLES DE ORDENAMIENTO ---\r\n                        
                         st.dataframe(datos_vista_sorted, use_container_width=True)
