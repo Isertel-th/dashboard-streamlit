@@ -66,31 +66,30 @@ def set_page_config_and_style():
             padding: 0.5rem 1rem !important;
             margin-bottom: 0px;
             display: flex;
-            justify-content: flex-end; # <--- ESTO DEBE ESTAR DENTRO DE LA CADENA
+            justify-content: flex-end; /* ESTO DEBE ESTAR DENTRO DE LA CADENA */
         }
-.stButton>button {
-    height: 30px;
-    padding-top: 5px !important;
-    padding-bottom: 5px !important;
-}
+        .stButton>button {
+            height: 30px;
+            padding-top: 5px !important;
+            padding-bottom: 5px !important;
+        }
 
-/* ---------------------------------------------------------------------------------- */
-/* >>> SOLUCIÓN: Empujar la cabecera de bienvenida/logout hacia abajo <<< */
-/* Este selector apunta a la fila de columnas que contiene el saludo y el botón de logout */
-/* Es importante probarlo, pero el primer stHorizontalBlock después del login es un buen objetivo */
-div[data-testid="stHorizontalBlock"]:first-of-type {
-    margin-top: 50px !important; /* Ajusta el valor según sea necesario (e.g., 30px, 40px) */
-}
-/* ---------------------------------------------------------------------------------- */
+        /* ---------------------------------------------------------------------------------- */
+        /* >>> SOLUCIÓN ROBUSTA PARA EL BANNER DE DEPLOY <<< */
+        /* Aplica padding superior al contenedor principal de la aplicación para despejar el banner. */
+        .main {
+            padding-top: 55px !important; 
+        }
+        /* ---------------------------------------------------------------------------------- */
 
-/* Ajustar el título principal para que no quede demasiado pegado al header */
-.main [data-testid="stTitle"] {
-    margin-top: 1rem;
-    margin-bottom: 0.5rem;
-}
+        /* El título principal no debe estar demasiado pegado al contenido */
+        .main [data-testid="stTitle"] {
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+        }
 
-</style>
-        """, unsafe_allow_html=True) # <--- ¿Falta una comilla o un triple-comilla anterior a esta línea?
+        </style>
+        """, unsafe_allow_html=True) 
 
 # Llama a la función al inicio de tu script
 set_page_config_and_style() 
