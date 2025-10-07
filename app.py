@@ -61,13 +61,13 @@ def set_page_config_and_style():
             margin-bottom: 0.1rem;
         }
         
-/* CSS Específico de Header para hacerlo más delgado */
-div[data-testid="stSuccess"] {
-    padding: 0.5rem 1rem !important;
-    margin-bottom: 0px;
-    display: flex;
-    justify-content: flex-end;
-}
+        /* CSS Específico de Header para hacerlo más delgado */
+        div[data-testid="stSuccess"] {
+            padding: 0.5rem 1rem !important;
+            margin-bottom: 0px;
+            display: flex;
+            justify-content: flex-end; # <--- ESTO DEBE ESTAR DENTRO DE LA CADENA
+        }
 .stButton>button {
     height: 30px;
     padding-top: 5px !important;
@@ -90,7 +90,7 @@ div[data-testid="stHorizontalBlock"]:first-of-type {
 }
 
 </style>
-""", unsafe_allow_html=True)
+        """, unsafe_allow_html=True) # <--- ¿Falta una comilla o un triple-comilla anterior a esta línea?
 
 # Llama a la función al inicio de tu script
 set_page_config_and_style() 
