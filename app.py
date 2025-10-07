@@ -79,7 +79,7 @@ def set_page_config_and_style():
 /* Este selector apunta a la fila de columnas que contiene el saludo y el botón de logout */
 /* Es importante probarlo, pero el primer stHorizontalBlock después del login es un buen objetivo */
 div[data-testid="stHorizontalBlock"]:first-of-type {
-    margin-top: 30px !important; /* Ajusta el valor según sea necesario (e.g., 30px, 40px) */
+    margin-top: 50px !important; /* Ajusta el valor según sea necesario (e.g., 30px, 40px) */
 }
 /* ---------------------------------------------------------------------------------- */
 
