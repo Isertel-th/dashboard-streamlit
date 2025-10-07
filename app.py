@@ -45,6 +45,11 @@ COL_TIPO_ORDEN_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_ORDEN_KEY, 'TIPO DE
 COL_FILTRO_TECNICO = '_Filtro_Tecnico_'
 COL_FILTRO_CIUDAD = '_Filtro_Ubicacion_'
 
+# --- Nuevas columnas para los Gráficos de Trayectoria ---
+COL_SEGM_TIEMPO = '_SEGM_AÑO_MES_'
+COL_TIPO_INST = '_ES_INSTALACION_'
+COL_TIPO_VISITA = '_ES_VISITA_'
+
 st.set_page_config(page_title="Estadístico Isertel", layout="wide")
 
 # --- FUNCIONES DE LIMPIEZA PARA FILTROS ---
@@ -76,6 +81,77 @@ def calculate_fixed_week(day):
         return 4
     else: # 29, 30, 31
         return 5
+
+# --- FUNCIÓN DE TRAYECTORIA ---
+@st.cache_data
+def prepare_trajectory_data(df):
+    """
+    Prepara el DataFrame para los gráficos de trayectoria secuencial (conteo por segmento de tiempo).
+    """
+    if df.empty:
+        return pd.DataFrame(), []
+    
+    # Asegurar que las columnas de tiempo existen
+    if COL_TEMP_DATETIME not in df.columns:
+        df[COL_TEMP_DATETIME] = pd.to_datetime(df[COL_FECHA_KEY], errors='coerce')
+    
+    df_temp = df.copy()
+    
+    # 1. Creación del segmento de tiempo (Año-Mes-SemanaFija)
+    df_temp['DAY'] = df_temp[COL_TEMP_DATETIME].dt.day.astype(int, errors='ignore')
+    df_temp['MONTH'] = df_temp[COL_TEMP_DATETIME].dt.month.astype(int, errors='ignore')
+    df_temp['YEAR'] = df_temp[COL_TEMP_DATETIME].dt.year.astype(int, errors='ignore')
+    
+    # Manejar posibles errores en la conversión a int si hay NaT
+    df_temp.dropna(subset=['DAY', 'MONTH', 'YEAR'], inplace=True)
+    df_temp['DAY'] = df_temp['DAY'].astype(int)
+    df_temp['MONTH'] = df_temp['MONTH'].astype(int)
+    df_temp['YEAR'] = df_temp['YEAR'].astype(int)
+
+
+    df_temp['FIXED_WEEK'] = df_temp['DAY'].apply(calculate_fixed_week).astype(int)
+    df_temp[COL_SEGM_TIEMPO] = df_temp['YEAR'].astype(str) + '-' + df_temp['MONTH'].astype(str).str.zfill(2) + '-' + df_temp['FIXED_WEEK'].astype(str)
+    
+    # 2. Identificación de tipos de órdenes
+    if COL_TIPO_ORDEN_KEY in df_temp.columns:
+        df_temp[COL_TIPO_INST] = df_temp[COL_TIPO_ORDEN_KEY].astype(str).str.contains('INSTALACION', case=False, na=False).astype(int)
+        df_temp[COL_TIPO_VISITA] = df_temp[COL_TIPO_ORDEN_KEY].astype(str).str.contains('VISITA TÉCNICA', case=False, na=False).astype(int)
+    else:
+        df_temp[COL_TIPO_INST] = 0
+        df_temp[COL_TIPO_VISITA] = 0
+    
+    # 3. Agrupación y Conteo por Segmento de Tiempo y Técnico
+    df_grouped = df_temp.groupby([COL_SEGM_TIEMPO, COL_FILTRO_TECNICO]).agg(
+        Total_Instalaciones=(COL_TIPO_INST, 'sum'),
+        Total_Visitas=(COL_TIPO_VISITA, 'sum')
+    ).reset_index()
+
+    # 4. Creación de la etiqueta del segmento de tiempo (Para el eje X legible)
+    def get_segment_label(year_month_segm):
+        if pd.isna(year_month_segm): return "N/A"
+        try:
+            parts = year_month_segm.split('-')
+            if len(parts) < 3: return year_month_segm
+            
+            year, month, week_num = parts
+            
+            ranges = {1: 'Día 1-7', 2: 'Día 8-14', 3: 'Día 15-21', 4: 'Día 22-28', 5: 'Día 29-31'}
+            month_name = pd.to_datetime(month, format='%m').strftime('%b')
+            week_num_int = int(week_num) if week_num.isdigit() else 5
+            
+            return f"{ranges.get(week_num_int, 'S5+')} ({month_name}/{year[-2:]})" # Usar solo los dos últimos dígitos del año
+        except:
+            return year_month_segm
+        
+    df_grouped['Segmento_Label'] = df_grouped[COL_SEGM_TIEMPO].apply(get_segment_label)
+    
+    # 5. Asegurar el orden correcto de los segmentos de tiempo para el eje X
+    df_grouped = df_grouped.sort_values(by=COL_SEGM_TIEMPO)
+    segment_order = df_grouped[COL_SEGM_TIEMPO].unique()
+    segment_label_order = [get_segment_label(s) for s in segment_order]
+
+    return df_grouped, segment_label_order
+
 
 # --- LECTURA DE USUARIOS ---
 try:
@@ -456,7 +532,7 @@ else:
                 # --- LAYOUT PRINCIPAL: GRÁFICO (Columna 1) y OTROS (Columna 2) ---
                 col_grafico, col_otros = st.columns([3, 1])
                 
-                # 5. GRÁFICO DE TAREAS REALIZADAS POR SEGMENTO FIJO
+                # 5. GRÁFICO DE TAREAS REALIZADAS POR SEGMENTO FIJO (BARRA)
                 with col_grafico:
                     with st.container(border=True): # <--- Tarjeta para el Gráfico
                         st.subheader("📊 Tareas Realizadas: Últimos 5 Segmentos Fijos")
@@ -466,16 +542,21 @@ else:
                         if total_registros > 0:
                             
                             datos_temp = datos_filtrados.copy()
-                            datos_temp['DAY'] = datos_temp[COL_TEMP_DATETIME].dt.day.astype(int)
-                            datos_temp['MONTH'] = datos_temp[COL_TEMP_DATETIME].dt.month.astype(int)
-                            datos_temp['YEAR'] = datos_temp[COL_TEMP_DATETIME].dt.year.astype(int)
+                            datos_temp['DAY'] = datos_temp[COL_TEMP_DATETIME].dt.day.astype(int, errors='ignore')
+                            datos_temp['MONTH'] = datos_temp[COL_TEMP_DATETIME].dt.month.astype(int, errors='ignore')
+                            datos_temp['YEAR'] = datos_temp[COL_TEMP_DATETIME].dt.year.astype(int, errors='ignore')
+                            datos_temp.dropna(subset=['DAY', 'MONTH', 'YEAR'], inplace=True)
+                            datos_temp['DAY'] = datos_temp['DAY'].astype(int)
+                            datos_temp['MONTH'] = datos_temp['MONTH'].astype(int)
+                            datos_temp['YEAR'] = datos_temp['YEAR'].astype(int)
+                            
                             datos_temp['FIXED_WEEK'] = datos_temp['DAY'].apply(calculate_fixed_week).astype(int)
-                            datos_temp['_SEGM_AÑO_MES_'] = datos_temp['YEAR'].astype(str) + '-' + datos_temp['MONTH'].astype(str).str.zfill(2) + '-' + datos_temp['FIXED_WEEK'].astype(str)
+                            datos_temp[COL_SEGM_TIEMPO] = datos_temp['YEAR'].astype(str) + '-' + datos_temp['MONTH'].astype(str).str.zfill(2) + '-' + datos_temp['FIXED_WEEK'].astype(str)
                             
-                            conteo_segmentos = datos_temp.groupby('_SEGM_AÑO_MES_').size().reset_index(name='Total_Tareas')
+                            conteo_segmentos = datos_temp.groupby(COL_SEGM_TIEMPO).size().reset_index(name='Total_Tareas')
                             
-                            top_5_segmentos = conteo_segmentos.sort_values(by='_SEGM_AÑO_MES_', ascending=False).head(5)
-                            df_escala = top_5_segmentos.sort_values(by='_SEGM_AÑO_MES_', ascending=True).copy()
+                            top_5_segmentos = conteo_segmentos.sort_values(by=COL_SEGM_TIEMPO, ascending=False).head(5)
+                            df_escala = top_5_segmentos.sort_values(by=COL_SEGM_TIEMPO, ascending=True).copy()
                             
                             def get_segment_range(year_month_segm):
                                 week_num = int(year_month_segm.split('-')[2])
@@ -483,13 +564,13 @@ else:
                                 month_num = int(year_month_segm.split('-')[1])
                                 month_name = pd.to_datetime(str(month_num), format='%m').strftime('%b')
                                 year = year_month_segm.split('-')[0]
-                                return f"{ranges.get(week_num, 'S5+')} ({month_name}/{year})"
+                                return f"{ranges.get(week_num, 'S5+')} ({month_name}/{year[-2:]})"
 
-                            df_escala['Segmento_Label'] = df_escala.apply(lambda row: get_segment_range(row['_SEGM_AÑO_MES_']), axis=1)
+                            df_escala['Segmento_Label'] = df_escala.apply(lambda row: get_segment_range(row[COL_SEGM_TIEMPO]), axis=1)
 
-                            conteo_5_segmentos = df_escala[['_SEGM_AÑO_MES_', 'Segmento_Label']].merge(
-                                conteo_segmentos[['_SEGM_AÑO_MES_', 'Total_Tareas']], 
-                                on='_SEGM_AÑO_MES_', 
+                            conteo_5_segmentos = df_escala[[COL_SEGM_TIEMPO, 'Segmento_Label']].merge(
+                                conteo_segmentos[[COL_SEGM_TIEMPO, 'Total_Tareas']], 
+                                on=COL_SEGM_TIEMPO, 
                                 how='left'
                             ).fillna(0)
                             
@@ -520,6 +601,78 @@ else:
                         else:
                             st.info("No hay datos filtrados para generar el gráfico semanal.")
 
+                
+                # --- SECCIÓN DE GRÁFICOS DE TRAYECTORIA (NUEVA MÉTRICA SOLICITADA) ---
+                
+                # Solo si se ha aplicado el filtro de ubicación Y hay al menos 2 técnicos.
+                if filtro_ciudad and COL_FILTRO_TECNICO in datos_filtrados.columns and len(datos_filtrados[COL_FILTRO_TECNICO].unique()) > 1:
+                    
+                    df_trayectoria, segment_label_order = prepare_trajectory_data(datos_filtrados)
+                    
+                    if not df_trayectoria.empty and df_trayectoria['Total_Instalaciones'].sum() + df_trayectoria['Total_Visitas'].sum() > 0:
+                        
+                        st.markdown("---")
+                        st.subheader(f"📈 Trayectoria Semanal por Técnico en {', '.join(filtro_ciudad)}")
+                        
+                        col_trayectoria_inst, col_trayectoria_visita = st.columns(2)
+                        
+                        # GRÁFICO 1: TRAYECTORIA DE INSTALACIONES
+                        with col_trayectoria_inst:
+                            with st.container(border=True):
+                                if df_trayectoria['Total_Instalaciones'].sum() > 0:
+                                    
+                                    # Gráfico de Líneas para Instalaciones
+                                    fig_inst = px.line(
+                                        df_trayectoria, 
+                                        x='Segmento_Label', 
+                                        y='Total_Instalaciones',
+                                        color=COL_FILTRO_TECNICO,
+                                        title='Trayectoria de **Instalaciones** por Técnico (Conteo por Segmento)',
+                                        labels={'Segmento_Label': 'Período Semanal Fijo', 'Total_Instalaciones': 'Instalaciones Realizadas', COL_FILTRO_TECNICO: 'Técnico'},
+                                        markers=True
+                                    )
+                                    
+                                    fig_inst.update_layout(
+                                        xaxis={'categoryorder':'array', 'categoryarray': segment_label_order},
+                                        yaxis_title='Total de Instalaciones',
+                                        legend_title='Técnico'
+                                    )
+                                    st.plotly_chart(fig_inst, use_container_width=True)
+                                else:
+                                    st.info("No hay **Instalaciones** registradas para el filtro seleccionado.")
+
+                        # GRÁFICO 2: TRAYECTORIA DE VISITAS TÉCNICAS
+                        with col_trayectoria_visita:
+                            with st.container(border=True):
+                                if df_trayectoria['Total_Visitas'].sum() > 0:
+                                    
+                                    # Gráfico de Líneas para Visitas Técnicas
+                                    fig_visita = px.line(
+                                        df_trayectoria, 
+                                        x='Segmento_Label', 
+                                        y='Total_Visitas',
+                                        color=COL_FILTRO_TECNICO,
+                                        title='Trayectoria de **Visitas Técnicas** por Técnico (Conteo por Segmento)',
+                                        labels={'Segmento_Label': 'Período Semanal Fijo', 'Total_Visitas': 'Visitas Técnicas Realizadas', COL_FILTRO_TECNICO: 'Técnico'},
+                                        markers=True
+                                    )
+                                    
+                                    fig_visita.update_layout(
+                                        xaxis={'categoryorder':'array', 'categoryarray': segment_label_order},
+                                        yaxis_title='Total de Visitas Técnicas',
+                                        legend_title='Técnico'
+                                    )
+                                    st.plotly_chart(fig_visita, use_container_width=True)
+                                else:
+                                    st.info("No hay **Visitas Técnicas** registradas para el filtro seleccionado.")
+                                
+                    else:
+                        st.info("💡 No hay datos de Instalaciones o Visitas Técnicas en este filtro.")
+                                
+                elif filtro_ciudad and COL_FILTRO_TECNICO in datos_filtrados.columns:
+                     st.info("💡 Selecciona una ubicación con **al menos dos técnicos** para ver la Trayectoria de Desempeño.")
+                # --- FIN DE GRÁFICOS DE TRAYECTORIA ---
+
 
                 # 6. GRÁFICO DE TAREAS POR TÉCNICO (COLUMNA DERECHA)
                 with col_otros:
@@ -548,17 +701,22 @@ else:
                 # 7. TABLA DE RESULTADOS RAW (OCULTA EN UN EXPANDER)
                 
                 # PREPARACIÓN FINAL DE LA TABLA
-                if not df_escala.empty:
-                    datos_filtrados['DAY'] = datos_filtrados[COL_TEMP_DATETIME].dt.day.astype(int)
-                    datos_filtrados['MONTH'] = datos_filtrados[COL_TEMP_DATETIME].dt.month.astype(int)
-                    datos_filtrados['YEAR'] = datos_filtrados[COL_TEMP_DATETIME].dt.year.astype(int)
+                # Re-calculamos estas columnas para la tabla si se han perdido por NaT
+                if 'DAY' not in datos_filtrados.columns:
+                    datos_filtrados['DAY'] = datos_filtrados[COL_TEMP_DATETIME].dt.day.astype(int, errors='ignore')
+                    datos_filtrados['MONTH'] = datos_filtrados[COL_TEMP_DATETIME].dt.month.astype(int, errors='ignore')
+                    datos_filtrados['YEAR'] = datos_filtrados[COL_TEMP_DATETIME].dt.year.astype(int, errors='ignore')
+                    datos_filtrados.dropna(subset=['DAY', 'MONTH', 'YEAR'], inplace=True)
+                    datos_filtrados['DAY'] = datos_filtrados['DAY'].astype(int)
                     datos_filtrados['FIXED_WEEK'] = datos_filtrados['DAY'].apply(calculate_fixed_week).astype(int)
-                    
+
+                if 'FIXED_WEEK' in datos_filtrados.columns:
                     datos_filtrados[COL_FINAL_SEMANA_GRAFICO] = datos_filtrados['FIXED_WEEK'].astype(str)
                 else:
                     datos_filtrados[COL_FINAL_SEMANA_GRAFICO] = 'Sin Datos'
                 
-                temp_cols_to_drop = [COL_TEMP_DATETIME, 'DAY', 'MONTH', 'YEAR', 'FIXED_WEEK', '_SEGM_AÑO_MES_', COL_FILTRO_CIUDAD, COL_FILTRO_TECNICO]
+                
+                temp_cols_to_drop = [COL_TEMP_DATETIME, 'DAY', 'MONTH', 'YEAR', 'FIXED_WEEK', COL_SEGM_TIEMPO, COL_FILTRO_CIUDAD, COL_FILTRO_TECNICO, COL_TIPO_INST, COL_TIPO_VISITA]
                 for col in temp_cols_to_drop:
                     if col in datos_filtrados.columns:
                         datos_filtrados.drop(columns=[col], inplace=True) 

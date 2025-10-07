@@ -15,6 +15,10 @@ secondaryBackgroundColor = "#262730"
 textColor = "#00BA41"
 
 #color rojo "#BC2929"
+#color verde "#00BA41"
+#color azul "#2D56D1"
+#color celeste "#30D1CC"
+#color morado "#D408CD"
 
 
 # font: Tipo de fuente.
