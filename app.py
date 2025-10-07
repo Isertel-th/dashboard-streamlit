@@ -204,17 +204,52 @@ if not st.session_state.login:
                 st.error("Usuario o contraseña incorrectos")
 
 else:
-    # --- Interfaz Principal (MOVIMIENTO DE SIDEBAR A TOP) ---
+    # --- Interfaz Principal (CABECERA SUPERIOR DERECHA, DELGADA Y ANCHA) ---
     
-    # Usamos columnas para colocar el mensaje de bienvenida y el botón en la misma línea superior
-    col_welcome, col_logout, col_spacer = st.columns([1, 1, 8]) 
+    # 1. CSS para reducir el padding/altura de elementos superiores y ajustar el layout del banner
+    st.markdown("""
+        <style>
+            /* 1. Elementos de la cabecera (Bienvenida y Logout) */
+            /* Apuntar a la alerta de st.success y reducir el padding vertical (hacer más delgado) */
+            div[data-testid="stSuccess"] {
+                padding: 0.5rem 1rem !important; /* Ajustar padding vertical */
+                margin-bottom: 0px; /* Reducir margen inferior */
+                display: flex;
+                justify-content: flex-end; /* Alinear el contenido del éxito a la derecha */
+            }
+            /* Apuntar al botón de st.button para reducir el padding (hacer más delgado) */
+            .stButton>button {
+                height: 30px; /* Altura más pequeña */
+                padding-top: 5px !important;
+                padding-bottom: 5px !important;
+            }
+            /* Asegurar que el mensaje de bienvenida se pegue a la derecha de su columna */
+            div[data-testid="stColumn"]:nth-child(2) > div > div[data-testid="stSuccess"] {
+                justify-content: flex-end;
+            }
+
+            /* 2. Banner de Filtros (Solo ajustes de layout y separación) */
+            /* Reducir el margen superior del banner para que quede "pegado" al título */
+            div[data-testid="stVerticalBlock"]:has(div[data-testid="stHeader"]) + div[data-testid="stVerticalBlock"] {
+                margin-top: -30px; 
+            }
+            /* Ajustar el padding interno del banner para hacerlo más compacto */
+            div[data-testid="stVerticalBlock"]:has(div[data-testid="stHeader"]) + div[data-testid="stVerticalBlock"] > div[data-testid="stContainer"] {
+                padding: 10px 15px !important; 
+            }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # 2. Usamos columnas para colocar el mensaje y el botón en la esquina superior derecha
+    # [8] para espaciador a la izquierda (push to right), [2] para Bienvenida (más ancha), [1] para Logout (más compacta)
+    col_spacer, col_welcome, col_logout = st.columns([8, 2, 1]) 
 
     with col_welcome:
-        # Usamos st.success en el cuerpo principal para el mensaje de bienvenida
+        # st.success para el mensaje de bienvenida (se aplica el CSS anterior)
         st.success(f"Bienvenido {st.session_state.usuario} ({st.session_state.rol})")
         
     with col_logout:
-        # El botón de cerrar sesión ahora está en el cuerpo principal, ocupando todo el ancho de su columna
+        # El botón de cerrar sesión
         st.button(
             "Cerrar sesión", 
             on_click=lambda: st.session_state.update({"login": False, "rol": None, "usuario": None}), 
@@ -396,14 +431,14 @@ else:
                 pass 
             else: # Solo si hay datos válidos, procedemos con filtros y gráficos
                 
-                # --- Contenedor de Filtros (para agrupar y acercar) ---
-                # MEJORA VISUAL: Usamos st.expander para ocultar los filtros y limpiar el dashboard inicialmente
-                with st.expander("🔎 Opciones de Filtro y Rango de Fechas", expanded=True): 
+                # --- Contenedor de Filtros (NUEVO BANNER HORIZONTAL) ---
+                with st.container(border=True): # <--- Este contenedor simulará el banner con el estilo por defecto
                     
                     # 2. FILTRO DE RANGO DE FECHAS
                     st.subheader(f"📅 Rango de {COL_FECHA_DESCRIPTIVA} y Filtros de Segmentación")
                     
-                    col_desde, col_hasta, _, _ = st.columns([1.5, 1.5, 0.5, 5]) 
+                    # Usamos st.columns para distribuir los filtros horizontalmente en el banner
+                    col_desde, col_hasta, col_ciu, col_tec = st.columns([1.5, 1.5, 2, 2]) 
 
                     # Filtro de fecha en las primeras dos columnas
                     with col_desde:
@@ -477,9 +512,6 @@ else:
                         return df[mascara]
 
                     # 3. FILTROS DE SEGMENTACIÓN (CASCADA DOBLE VÍA)
-                    st.markdown("---")
-                    
-                    col_ciu, col_tec = st.columns(2)
                     
                     filtro_ciudad_actual = st.session_state.get('multiselect_ubicacion', [])
                     filtro_tecnico_actual = st.session_state.get('multiselect_tecnico', [])
@@ -511,6 +543,7 @@ else:
                     df_final = apply_filter(df_final, COL_FILTRO_TECNICO, filtro_tecnico)
                     
                     datos_filtrados = df_final
+                # --- FIN DEL BANNER DE FILTROS ---
                 
                 # NUEVO SEPARADOR VISUAL: Separa los filtros de las métricas/resultados
                 st.markdown("---")
