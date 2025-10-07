@@ -67,31 +67,33 @@ def set_page_config_and_style():
             margin-bottom: 0px;
             display: flex;
             justify-content: flex-end; 
-            margin-top: 1rem !important; /* SOLUCIÓN: Empuja el mensaje de bienvenida hacia abajo */
         }
-.stButton>button {
-    height: 30px;
-    padding-top: 5px !important;
-    padding-bottom: 5px !important;
-}
+        .stButton>button {
+            height: 30px;
+            padding-top: 5px !important;
+            padding-bottom: 5px !important;
+        }
 
-/* ---------------------------------------------------------------------------------- */
-/* SOLUCIÓN FINAL: Ajustar el margen superior para que el contenido pase */
-/* por debajo de la toolbar fija de Streamlit (Share, menú, etc.). */
-.main {
-    padding-top: 0rem !important; /* Aseguramos que el padding interno es 0 */
-    margin-top: 1.5rem !important; /* CLAVE: Empuja el contenedor principal hacia abajo */
-}
-/* ---------------------------------------------------------------------------------- */
+        /* ---------------------------------------------------------------------------------- */
+        /* >>> SOLUCIÓN ROBUSTA: Empujar TODO el contenido hacia abajo <<< */
+        /* Afecta al contenedor principal de Streamlit para liberar el espacio del banner de deploy */
+        .main {
+            padding-top: 60px !important; 
+        }
+        /* ---------------------------------------------------------------------------------- */
 
-/* Ajustar el título principal para que no quede demasiado pegado al header */
-.main [data-testid="stTitle"] {
-    margin-top: 0rem !important; /* Se reduce a 0 para que quede bien posicionado */
-    margin-bottom: 0.2rem !important;
-    padding-left: 1rem !important; 
-}
+        /* Ajustar el título principal para que no quede demasiado pegado al header */
+        .main [data-testid="stTitle"] {
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+        }
 
-</style>
+        /* NUEVO CÓDIGO: Bajar la fila de bienvenida/cerrar sesión AUN MÁS */
+        .header-push-down {
+            margin-top: 15px !important; /* Se agrega un margen superior al bloque para bajarlo */
+        }
+        
+        </style>
         """, unsafe_allow_html=True) # <--- ¿Falta una comilla o un triple-comilla anterior a esta línea?
 
 # Llama a la función al inicio de tu script
@@ -301,6 +303,9 @@ else:
     
     # 1. El CSS de compacidad ya está en set_page_config_and_style()
     
+    # NUEVO: Abrir un bloque con la clase CSS para bajar la fila
+    st.markdown('<div class="header-push-down">', unsafe_allow_html=True)
+    
     # 2. Usamos columnas para colocar el mensaje y el botón en la esquina superior derecha
     col_spacer, col_welcome, col_logout = st.columns([8, 2, 1]) 
 
@@ -316,6 +321,9 @@ else:
             key="logout_btn",
             use_container_width=True
         )
+
+    # NUEVO: Cerrar el bloque
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # El título principal se mantiene en el cuerpo
     st.title("📊 Estadístico Isertel")
@@ -978,5 +986,6 @@ else:
                             )
                         else:
                             datos_vista_sorted = datos_vista # Si la columna no se encuentra, no ordenar
-                        # --- FIN DE CONTROLES DE ORDENAMIENTO ---\r\n                        
+                        # --- FIN DE CONTROLES DE ORDENAMIENTO ---
+                        
                         st.dataframe(datos_vista_sorted, use_container_width=True)
