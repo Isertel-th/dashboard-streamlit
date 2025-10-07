@@ -45,7 +45,7 @@ COL_TIPO_ORDEN_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_ORDEN_KEY, 'TIPO DE
 COL_FILTRO_TECNICO = '_Filtro_Tecnico_'
 COL_FILTRO_CIUDAD = '_Filtro_Ubicacion_'
 
-# --- Nuevas columnas para los Gráficos de Trayectoria ---
+# --- Nuevas columnas para los Gráficos de Comparación ---
 COL_SEGM_TIEMPO = '_SEGM_AÑO_MES_'
 COL_TIPO_INST = '_ES_INSTALACION_'
 COL_TIPO_VISITA = '_ES_VISITA_'
@@ -82,76 +82,83 @@ def calculate_fixed_week(day):
     else: # 29, 30, 31
         return 5
 
-# --- FUNCIÓN DE TRAYECTORIA ---
+# --- FUNCIÓN DE COMPARACIÓN POR TÉCNICO ---
 @st.cache_data
-def prepare_trajectory_data(df):
+def prepare_comparison_data(df):
     """
-    Prepara el DataFrame para los gráficos de trayectoria secuencial (conteo por segmento de tiempo).
+    Prepara el DataFrame para los gráficos de comparación de rendimiento por técnico 
+    (REQUIERE FILTRO DE UNA SOLA CIUDAD).
     """
     if df.empty:
-        return pd.DataFrame(), []
-    
-    # Asegurar que las columnas de tiempo existen
-    if COL_TEMP_DATETIME not in df.columns:
-        df[COL_TEMP_DATETIME] = pd.to_datetime(df[COL_FECHA_KEY], errors='coerce')
+        return pd.DataFrame()
     
     df_temp = df.copy()
     
-    # 1. Creación del segmento de tiempo (Año-Mes-SemanaFija)
-    df_temp['DAY'] = df_temp[COL_TEMP_DATETIME].dt.day.astype(int, errors='ignore')
-    df_temp['MONTH'] = df_temp[COL_TEMP_DATETIME].dt.month.astype(int, errors='ignore')
-    df_temp['YEAR'] = df_temp[COL_TEMP_DATETIME].dt.year.astype(int, errors='ignore')
-    
-    # Manejar posibles errores en la conversión a int si hay NaT
-    df_temp.dropna(subset=['DAY', 'MONTH', 'YEAR'], inplace=True)
-    df_temp['DAY'] = df_temp['DAY'].astype(int)
-    df_temp['MONTH'] = df_temp['MONTH'].astype(int)
-    df_temp['YEAR'] = df_temp['YEAR'].astype(int)
+    # 1. Identificación de tipos de órdenes (Instalación vs. Visita Técnica)
+    if COL_TIPO_ORDEN_KEY in df_temp.columns:
+        # 1 si contiene 'INSTALACION', 0 si no
+        df_temp[COL_TIPO_INST] = df_temp[COL_TIPO_ORDEN_KEY].astype(str).str.contains('INSTALACION', case=False, na=False).astype(int)
+        # 1 si contiene 'VISITA TÉCNICA', 0 si no
+        df_temp[COL_TIPO_VISITA] = df_temp[COL_TIPO_ORDEN_KEY].astype(str).str.contains('VISITA TÉCNICA', case=False, na=False).astype(int)
+    else:
+        df_temp[COL_TIPO_INST] = 0
+        df_temp[COL_TIPO_VISITA] = 0
+        
+    # 2. Agrupación y Conteo por Técnico dentro de la Ubicación filtrada
+    if COL_FILTRO_TECNICO not in df_temp.columns or COL_FILTRO_CIUDAD not in df_temp.columns:
+        return pd.DataFrame()
 
+    df_grouped = df_temp.groupby([COL_FILTRO_CIUDAD, COL_FILTRO_TECNICO]).agg(
+        Total_Instalaciones=(COL_TIPO_INST, 'sum'),
+        Total_Visitas=(COL_TIPO_VISITA, 'sum')
+    ).reset_index()
 
-    df_temp['FIXED_WEEK'] = df_temp['DAY'].apply(calculate_fixed_week).astype(int)
-    df_temp[COL_SEGM_TIEMPO] = df_temp['YEAR'].astype(str) + '-' + df_temp['MONTH'].astype(str).str.zfill(2) + '-' + df_temp['FIXED_WEEK'].astype(str)
+    # 3. Asegurar el tipo de dato y el orden 
+    df_grouped['Total_Instalaciones'] = df_grouped['Total_Instalaciones'].astype(int)
+    df_grouped['Total_Visitas'] = df_grouped['Total_Visitas'].astype(int)
     
-    # 2. Identificación de tipos de órdenes
+    # Ordenamos por técnico para tener una secuencia de línea fija (como en tu ejemplo)
+    df_grouped = df_grouped.sort_values(by=COL_FILTRO_TECNICO) 
+
+    return df_grouped
+
+# --- NUEVA FUNCIÓN PARA COMPARACIÓN POR CIUDAD (SIN FILTROS DE UBICACIÓN INDIVIDUAL) ---
+@st.cache_data
+def prepare_city_comparison_data(df):
+    """
+    Prepara el DataFrame para los gráficos de comparación de rendimiento por ciudad 
+    (VISTA GLOBAL SIN FILTRO DE UNA SOLA CIUDAD).
+    """
+    if df.empty:
+        return pd.DataFrame()
+    
+    df_temp = df.copy()
+    
+    # 1. Identificación de tipos de órdenes (Instalación vs. Visita Técnica)
     if COL_TIPO_ORDEN_KEY in df_temp.columns:
         df_temp[COL_TIPO_INST] = df_temp[COL_TIPO_ORDEN_KEY].astype(str).str.contains('INSTALACION', case=False, na=False).astype(int)
         df_temp[COL_TIPO_VISITA] = df_temp[COL_TIPO_ORDEN_KEY].astype(str).str.contains('VISITA TÉCNICA', case=False, na=False).astype(int)
     else:
         df_temp[COL_TIPO_INST] = 0
         df_temp[COL_TIPO_VISITA] = 0
-    
-    # 3. Agrupación y Conteo por Segmento de Tiempo y Técnico
-    df_grouped = df_temp.groupby([COL_SEGM_TIEMPO, COL_FILTRO_TECNICO]).agg(
+        
+    # 2. Agrupación y Conteo por Ciudad
+    if COL_FILTRO_CIUDAD not in df_temp.columns:
+        return pd.DataFrame()
+
+    df_grouped = df_temp.groupby([COL_FILTRO_CIUDAD]).agg(
         Total_Instalaciones=(COL_TIPO_INST, 'sum'),
         Total_Visitas=(COL_TIPO_VISITA, 'sum')
     ).reset_index()
 
-    # 4. Creación de la etiqueta del segmento de tiempo (Para el eje X legible)
-    def get_segment_label(year_month_segm):
-        if pd.isna(year_month_segm): return "N/A"
-        try:
-            parts = year_month_segm.split('-')
-            if len(parts) < 3: return year_month_segm
-            
-            year, month, week_num = parts
-            
-            ranges = {1: 'Día 1-7', 2: 'Día 8-14', 3: 'Día 15-21', 4: 'Día 22-28', 5: 'Día 29-31'}
-            month_name = pd.to_datetime(month, format='%m').strftime('%b')
-            week_num_int = int(week_num) if week_num.isdigit() else 5
-            
-            return f"{ranges.get(week_num_int, 'S5+')} ({month_name}/{year[-2:]})" # Usar solo los dos últimos dígitos del año
-        except:
-            return year_month_segm
-        
-    df_grouped['Segmento_Label'] = df_grouped[COL_SEGM_TIEMPO].apply(get_segment_label)
+    # 3. Asegurar el tipo de dato y el orden 
+    df_grouped['Total_Instalaciones'] = df_grouped['Total_Instalaciones'].astype(int)
+    df_grouped['Total_Visitas'] = df_grouped['Total_Visitas'].astype(int)
     
-    # 5. Asegurar el orden correcto de los segmentos de tiempo para el eje X
-    df_grouped = df_grouped.sort_values(by=COL_SEGM_TIEMPO)
-    segment_order = df_grouped[COL_SEGM_TIEMPO].unique()
-    segment_label_order = [get_segment_label(s) for s in segment_order]
+    # Ordenamos por ciudad para tener una secuencia de línea fija
+    df_grouped = df_grouped.sort_values(by=COL_FILTRO_CIUDAD) 
 
-    return df_grouped, segment_label_order
-
+    return df_grouped
 
 # --- LECTURA DE USUARIOS ---
 try:
@@ -197,11 +204,26 @@ if not st.session_state.login:
                 st.error("Usuario o contraseña incorrectos")
 
 else:
-    # --- Interfaz Principal ---
-    st.title("📊 Estadístico Isertel")
+    # --- Interfaz Principal (MOVIMIENTO DE SIDEBAR A TOP) ---
     
-    st.sidebar.success(f"Bienvenido {st.session_state.usuario} ({st.session_state.rol})")
-    st.sidebar.button("Cerrar sesión", on_click=lambda: st.session_state.update({"login": False, "rol": None, "usuario": None}), key="logout_btn")
+    # Usamos columnas para colocar el mensaje de bienvenida y el botón en la misma línea superior
+    col_welcome, col_logout, col_spacer = st.columns([1, 1, 8]) 
+
+    with col_welcome:
+        # Usamos st.success en el cuerpo principal para el mensaje de bienvenida
+        st.success(f"Bienvenido {st.session_state.usuario} ({st.session_state.rol})")
+        
+    with col_logout:
+        # El botón de cerrar sesión ahora está en el cuerpo principal, ocupando todo el ancho de su columna
+        st.button(
+            "Cerrar sesión", 
+            on_click=lambda: st.session_state.update({"login": False, "rol": None, "usuario": None}), 
+            key="logout_btn",
+            use_container_width=True
+        )
+
+    # El título principal se mantiene en el cuerpo, después de la información de sesión
+    st.title("📊 Estadístico Isertel")
 
     # --- LÓGICA DE CARGA Y COMBINACIÓN DE DATOS ---
     archivos_para_combinar_nombres = [f for f in os.listdir(UPLOAD_FOLDER) if f.lower().endswith(('.xlsx', '.xls', '.csv'))]
@@ -211,7 +233,8 @@ else:
     df_list = []
     
     if archivos_para_combinar_nombres: 
-        st.sidebar.info(f"💾 **{num_archivos_cargados}** archivo(s) cargado(s) y combinado(s).")
+        # Mover la info de archivos cargados al cuerpo principal (sin st.sidebar)
+        st.info(f"💾 **{num_archivos_cargados}** archivo(s) cargado(s) y combinado(s).")
         archivos_completos = [os.path.join(UPLOAD_FOLDER, f) for f in archivos_para_combinar_nombres]
         
         try:
@@ -267,7 +290,8 @@ else:
             st.error(f"Error al combinar o leer archivos de la carpeta de subidas: {e}")
             datos = None
     else:
-        st.sidebar.warning("⚠️ No hay archivos cargados.")
+        # Mover la advertencia de no archivos cargados al cuerpo principal (sin st.sidebar)
+        st.warning("⚠️ No hay archivos cargados.")
         try:
             datos = pd.read_excel(MASTER_EXCEL)
             
@@ -602,76 +626,166 @@ else:
                             st.info("No hay datos filtrados para generar el gráfico semanal.")
 
                 
-                # --- SECCIÓN DE GRÁFICOS DE TRAYECTORIA (NUEVA MÉTRICA SOLICITADA) ---
+                # --- SECCIÓN DE GRÁFICOS DE COMPARACIÓN ---
                 
-                # Solo si se ha aplicado el filtro de ubicación Y hay al menos 2 técnicos.
-                if filtro_ciudad and COL_FILTRO_TECNICO in datos_filtrados.columns and len(datos_filtrados[COL_FILTRO_TECNICO].unique()) > 1:
+                # LÓGICA DE VISTA:
+                # 1. Si SELECCIONA UNA SOLA CIUDAD: Mostrar Comparación por TÉCNICO dentro de esa ciudad.
+                # 2. Si NO SELECCIONA UNA SOLA CIUDAD: Mostrar Comparación por CIUDAD (vista general).
+                
+                if len(filtro_ciudad) == 1 and COL_FILTRO_TECNICO in datos_filtrados.columns and len(datos_filtrados[COL_FILTRO_TECNICO].unique()) >= 1:
                     
-                    df_trayectoria, segment_label_order = prepare_trajectory_data(datos_filtrados)
+                    # --- VISTA 1: COMPARACIÓN POR TÉCNICO (Dentro de 1 Ciudad Seleccionada) ---
+                    df_comparacion = prepare_comparison_data(datos_filtrados)
                     
-                    if not df_trayectoria.empty and df_trayectoria['Total_Instalaciones'].sum() + df_trayectoria['Total_Visitas'].sum() > 0:
+                    if not df_comparacion.empty and (df_comparacion['Total_Instalaciones'].sum() > 0 or df_comparacion['Total_Visitas'].sum() > 0):
                         
+                        ciudad_seleccionada = filtro_ciudad[0]
                         st.markdown("---")
-                        st.subheader(f"📈 Trayectoria Semanal por Técnico en {', '.join(filtro_ciudad)}")
+                        st.subheader(f"📊 Rendimiento por **Técnico** en: **{ciudad_seleccionada}**")
                         
-                        col_trayectoria_inst, col_trayectoria_visita = st.columns(2)
+                        # GRÁFICO 1: COMPARACIÓN DE INSTALACIONES (TÉCNICO)
+                        with st.container(border=True):
+                            if df_comparacion['Total_Instalaciones'].sum() > 0:
+                                
+                                fig_inst = px.line(
+                                    df_comparacion, 
+                                    x=COL_FILTRO_TECNICO, 
+                                    y='Total_Instalaciones',
+                                    title='Comparación de **Instalaciones** por Técnico',
+                                    labels={
+                                        COL_FILTRO_TECNICO: 'Técnico', 
+                                        'Total_Instalaciones': 'Instalaciones Realizadas'
+                                    },
+                                    markers=True,
+                                    text='Total_Instalaciones' 
+                                )
+                                
+                                fig_inst.update_layout(
+                                    xaxis_title='Técnico',
+                                    yaxis_title='Total de Instalaciones',
+                                    uniformtext_minsize=8, 
+                                    uniformtext_mode='hide', 
+                                )
+                                fig_inst.update_traces(textposition="top center") 
+                                
+                                st.plotly_chart(fig_inst, use_container_width=True)
+                            else:
+                                st.info("No hay **Instalaciones** registradas para los filtros seleccionados.")
                         
-                        # GRÁFICO 1: TRAYECTORIA DE INSTALACIONES
-                        with col_trayectoria_inst:
-                            with st.container(border=True):
-                                if df_trayectoria['Total_Instalaciones'].sum() > 0:
-                                    
-                                    # Gráfico de Líneas para Instalaciones
-                                    fig_inst = px.line(
-                                        df_trayectoria, 
-                                        x='Segmento_Label', 
-                                        y='Total_Instalaciones',
-                                        color=COL_FILTRO_TECNICO,
-                                        title='Trayectoria de **Instalaciones** por Técnico (Conteo por Segmento)',
-                                        labels={'Segmento_Label': 'Período Semanal Fijo', 'Total_Instalaciones': 'Instalaciones Realizadas', COL_FILTRO_TECNICO: 'Técnico'},
-                                        markers=True
-                                    )
-                                    
-                                    fig_inst.update_layout(
-                                        xaxis={'categoryorder':'array', 'categoryarray': segment_label_order},
-                                        yaxis_title='Total de Instalaciones',
-                                        legend_title='Técnico'
-                                    )
-                                    st.plotly_chart(fig_inst, use_container_width=True)
-                                else:
-                                    st.info("No hay **Instalaciones** registradas para el filtro seleccionado.")
+                        st.markdown("---") # Separador visual entre los dos gráficos apilados
 
-                        # GRÁFICO 2: TRAYECTORIA DE VISITAS TÉCNICAS
-                        with col_trayectoria_visita:
-                            with st.container(border=True):
-                                if df_trayectoria['Total_Visitas'].sum() > 0:
-                                    
-                                    # Gráfico de Líneas para Visitas Técnicas
-                                    fig_visita = px.line(
-                                        df_trayectoria, 
-                                        x='Segmento_Label', 
-                                        y='Total_Visitas',
-                                        color=COL_FILTRO_TECNICO,
-                                        title='Trayectoria de **Visitas Técnicas** por Técnico (Conteo por Segmento)',
-                                        labels={'Segmento_Label': 'Período Semanal Fijo', 'Total_Visitas': 'Visitas Técnicas Realizadas', COL_FILTRO_TECNICO: 'Técnico'},
-                                        markers=True
-                                    )
-                                    
-                                    fig_visita.update_layout(
-                                        xaxis={'categoryorder':'array', 'categoryarray': segment_label_order},
-                                        yaxis_title='Total de Visitas Técnicas',
-                                        legend_title='Técnico'
-                                    )
-                                    st.plotly_chart(fig_visita, use_container_width=True)
-                                else:
-                                    st.info("No hay **Visitas Técnicas** registradas para el filtro seleccionado.")
+                        # GRÁFICO 2: COMPARACIÓN DE VISITAS TÉCNICAS (TÉCNICO)
+                        with st.container(border=True):
+                            if df_comparacion['Total_Visitas'].sum() > 0:
+                                
+                                fig_visita = px.line(
+                                    df_comparacion, 
+                                    x=COL_FILTRO_TECNICO, 
+                                    y='Total_Visitas',
+                                    title='Comparación de **Visitas Técnicas** por Técnico',
+                                    labels={
+                                        COL_FILTRO_TECNICO: 'Técnico', 
+                                        'Total_Visitas': 'Visitas Técnicas Realizadas'
+                                    },
+                                    markers=True,
+                                    text='Total_Visitas' 
+                                )
+                                
+                                fig_visita.update_layout(
+                                    xaxis_title='Técnico',
+                                    yaxis_title='Total de Visitas Técnicas',
+                                    uniformtext_minsize=8, 
+                                    uniformtext_mode='hide', 
+                                )
+                                fig_visita.update_traces(textposition="top center") 
+                                
+                                st.plotly_chart(fig_visita, use_container_width=True)
+                            else:
+                                st.info("No hay **Visitas Técnicas** registradas para los filtros seleccionados.")
                                 
                     else:
-                        st.info("💡 No hay datos de Instalaciones o Visitas Técnicas en este filtro.")
+                        st.info("💡 No hay datos de Instalaciones o Visitas Técnicas para mostrar en la comparación por técnico con los filtros aplicados.")
                                 
-                elif filtro_ciudad and COL_FILTRO_TECNICO in datos_filtrados.columns:
-                     st.info("💡 Selecciona una ubicación con **al menos dos técnicos** para ver la Trayectoria de Desempeño.")
-                # --- FIN DE GRÁFICOS DE TRAYECTORIA ---
+                else: # len(filtro_ciudad) != 1 (Vista Global por Ciudad o si no hay filtros aplicados)
+                    
+                    # --- VISTA 2: COMPARACIÓN POR CIUDAD (Vista Global) ---
+                    df_comparacion_city = prepare_city_comparison_data(datos_filtrados)
+                    
+                    if not df_comparacion_city.empty and (df_comparacion_city['Total_Instalaciones'].sum() > 0 or df_comparacion_city['Total_Visitas'].sum() > 0):
+                        
+                        st.markdown("---")
+                        st.subheader("📊 Rendimiento por **Ubicación/Ciudad**")
+                        
+                        # GRÁFICO 1: COMPARACIÓN DE INSTALACIONES (CIUDAD)
+                        with st.container(border=True):
+                            if df_comparacion_city['Total_Instalaciones'].sum() > 0:
+                                
+                                fig_inst_city = px.line(
+                                    df_comparacion_city, 
+                                    x=COL_FILTRO_CIUDAD, 
+                                    y='Total_Instalaciones',
+                                    title='Total de **Instalaciones** por Ciudad (Todas las Ciudades Filtradas)',
+                                    labels={
+                                        COL_FILTRO_CIUDAD: 'Ubicación/Ciudad', 
+                                        'Total_Instalaciones': 'Instalaciones Realizadas'
+                                    },
+                                    markers=True,
+                                    text='Total_Instalaciones' 
+                                )
+                                
+                                fig_inst_city.update_layout(
+                                    xaxis_title='Ubicación/Ciudad',
+                                    yaxis_title='Total de Instalaciones',
+                                    uniformtext_minsize=8, 
+                                    uniformtext_mode='hide', 
+                                    xaxis={'categoryorder':'category ascending'} # Asegura que la línea se dibuje en orden alfabético de ciudades
+                                )
+                                fig_inst_city.update_traces(textposition="top center") 
+                                
+                                st.plotly_chart(fig_inst_city, use_container_width=True)
+                            else:
+                                st.info("No hay **Instalaciones** registradas para los filtros seleccionados.")
+                        
+                        st.markdown("---") # Separador visual entre los dos gráficos apilados
+
+                        # GRÁFICO 2: COMPARACIÓN DE VISITAS TÉCNICAS (CIUDAD)
+                        with st.container(border=True):
+                            if df_comparacion_city['Total_Visitas'].sum() > 0:
+                                
+                                fig_visita_city = px.line(
+                                    df_comparacion_city, 
+                                    x=COL_FILTRO_CIUDAD, 
+                                    y='Total_Visitas',
+                                    title='Total de **Visitas Técnicas** por Ciudad (Todas las Ciudades Filtradas)',
+                                    labels={
+                                        COL_FILTRO_CIUDAD: 'Ubicación/Ciudad', 
+                                        'Total_Visitas': 'Visitas Técnicas Realizadas'
+                                    },
+                                    markers=True,
+                                    text='Total_Visitas' 
+                                )
+                                
+                                fig_visita_city.update_layout(
+                                    xaxis_title='Ubicación/Ciudad',
+                                    yaxis_title='Total de Visitas Técnicas',
+                                    uniformtext_minsize=8, 
+                                    uniformtext_mode='hide', 
+                                    xaxis={'categoryorder':'category ascending'} # Asegura que la línea se dibuje en orden alfabético de ciudades
+                                )
+                                fig_visita_city.update_traces(textposition="top center") 
+                                
+                                st.plotly_chart(fig_visita_city, use_container_width=True)
+                            else:
+                                st.info("No hay **Visitas Técnicas** registradas para los filtros seleccionados.")
+
+                        # AÑADIR MENSAJE PARA CAMBIAR A VISTA DE TÉCNICO
+                        st.markdown("---")
+                        st.info("💡 Actualmente viendo el rendimiento por **Ciudad**. Selecciona **exactamente UNA ubicación** en el filtro superior para ver la comparación de rendimiento por técnico.")
+                        
+                    else:
+                        st.info("💡 No hay datos de Instalaciones o Visitas Técnicas para mostrar en la comparación por ciudad con los filtros aplicados.")
+
+                # --- FIN DE GRÁFICOS DE COMPARACIÓN ---
 
 
                 # 6. GRÁFICO DE TAREAS POR TÉCNICO (COLUMNA DERECHA)

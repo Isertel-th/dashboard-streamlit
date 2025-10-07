@@ -12,7 +12,7 @@ backgroundColor = "#0E1117"
 secondaryBackgroundColor = "#262730"
 
 # textColor: Color principal del texto.
-textColor = "#00BA41"
+textColor = "#BC2929"
 
 #color rojo "#BC2929"
 #color verde "#00BA41"
@@ -23,3 +23,7 @@ textColor = "#00BA41"
 
 # font: Tipo de fuente.
 font = "sans serif"
+
+# --- CAMBIO AÑADIDO: OCULTAR EL SIDEBAR DE NAVEGACIÓN PERMANENTEMENTE ---
+[client]
+showSidebarNavigation = false
