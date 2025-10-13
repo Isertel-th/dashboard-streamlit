@@ -582,7 +582,20 @@ else:
                     df_domain_tec = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad_actual) 
                     opciones_tecnico = get_multiselect_options(df_domain_tec, COL_FILTRO_TECNICO)
                     
-                    # --- CÁLCULO DE MÉTRICAS CLAVE (antes de su renderizado) --- 
+                    # --- RENDERIZADO DE FILTROS DE SEGMENTACIÓN (Ubicación y Técnico) ---
+                    with col_ciu:
+                        filtro_ciudad = st.multiselect(f"**{COL_CIUDAD_DESCRIPTIVA}**:", options=opciones_ciudad, default=filtro_ciudad_actual, key='multiselect_ubicacion')
+
+                    with col_tec:
+                        filtro_tecnico = st.multiselect(f"**{COL_TECNICO_DESCRIPTIVA}**:", options=opciones_tecnico, default=filtro_tecnico_actual, key='multiselect_tecnico')
+                        
+                    # APLICACIÓN FINAL DE FILTROS DE SEGMENTACIÓN 
+                    # Se aplican los filtros de multiselect al DataFrame ya filtrado por fecha (df_all)
+                    df_final = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad) 
+                    df_final = apply_filter(df_final, COL_FILTRO_TECNICO, filtro_tecnico) 
+                    datos_filtrados = df_final # 💥 CORRECCIÓN: Actualizamos datos_filtrados para que refleje todos los filtros 💥
+
+                    # --- CÁLCULO DE MÉTRICAS CLAVE (AHORA SOBRE EL DATAFRAME FILTRADO) --- 
                     total_registros = len(datos_filtrados) 
                     if COL_TIPO_ORDEN_KEY in datos_filtrados.columns: 
                         tipo_orden = datos_filtrados[COL_TIPO_ORDEN_KEY].astype(str)
@@ -595,14 +608,6 @@ else:
                     porc_instalaciones = (total_instalaciones / total_registros) * 100 if total_registros > 0 else 0 
                     porc_visitas = (total_visitas_tecnicas / total_registros) * 100 if total_registros > 0 else 0
                     
-                    # --- RENDERIZADO DE FILTROS DE SEGMENTACIÓN (Ubicación y Técnico) ---
-                    with col_ciu:
-                        filtro_ciudad = st.multiselect(f"**{COL_CIUDAD_DESCRIPTIVA}**:", options=opciones_ciudad, default=filtro_ciudad_actual, key='multiselect_ubicacion')
-
-                    with col_tec:
-                        filtro_tecnico = st.multiselect(f"**{COL_TECNICO_DESCRIPTIVA}**:", options=opciones_tecnico, default=filtro_tecnico_actual, key='multiselect_tecnico')
-
-
                     # --- RENDERIZADO DE MÉTRICAS COMPACTAS (Absolutos y Tasas) --- 
                     
                     # Columna para Total Órdenes (Absoluto)
@@ -641,10 +646,6 @@ else:
                         st.metric(label="Tasa %", value=f"{porc_visitas:.1f}%") 
                         st.markdown('</div>', unsafe_allow_html=True)
                     
-                    # APLICACIÓN FINAL DE FILTROS DE SEGMENTACIÓN 
-                    df_final = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad) 
-                    df_final = apply_filter(df_final, COL_FILTRO_TECNICO, filtro_tecnico) 
-                    datos_filtrados = df_final
                 # --- FIN DEL PANEL DE CONTROL COMPACTO ---
 
                 st.markdown("---")
