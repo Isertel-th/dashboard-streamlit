@@ -9,12 +9,12 @@ def set_page_config_and_style():
 # 1. Configurar layout en modo ancho ("wide") y título 
     st.set_page_config(layout="wide", page_title="Estadístico Isertel")
 
-# 2. Custom CSS para máxima compacidad y minimalismo 
+# 2. Custom CSS para máxima compacidad y minimalismo (AJUSTES AGRESIVOS)
     st.markdown(""" 
     <style> 
     /* Ahorro vertical general: Reducir padding en el área principal de la aplicación */ 
     .block-container { 
-        padding-top: 4rem !important; /* AJUSTE CLAVE: Aumentado a 4rem (aprox. 3cm) para bajar la cabecera y evitar que la tape el banner nativo de Streamlit */ 
+        padding-top: 4rem !important; 
         padding-bottom: 0rem !important; 
         padding-left: 1rem !important; 
         padding-right: 1rem !important; 
@@ -30,15 +30,21 @@ def set_page_config_and_style():
         padding: 0.5rem !important; 
     }
 
-    /* Reducir espacio vertical para todos los títulos */ 
+    /* Reducir espacio vertical para todos los títulos (MÁS AGRESIVO) */ 
     h3, h4, h5 { 
-        margin-top: 0.5rem !important; 
-        margin-bottom: 0.3rem !important; 
+        margin-top: 0.1rem !important; /* De 0.5 a 0.1 */
+        margin-bottom: 0.1rem !important; /* De 0.3 a 0.1 */
+    }
+    
+    /* Reducir margen de la línea horizontal */
+    hr {
+        margin-top: 0.1rem !important;
+        margin-bottom: 0.1rem !important;
     }
 
-    /* Reducir espacio en los widgets de formulario */ 
+    /* Reducir espacio en los widgets de formulario (MÁS AGRESIVO) */ 
     .stSelectbox, .stMultiSelect, .stDateInput, div[data-testid="stForm"] { 
-        margin-bottom: 0.1rem !important; 
+        margin-bottom: 0.0rem !important; /* De 0.1 a 0.0 */
     }
 
     /* Reducir padding en los st.metric (las tarjetas de KPIs) */ 
@@ -55,23 +61,23 @@ def set_page_config_and_style():
 
     /* Contenedor de las métricas que contiene el valor */ 
     .metric-compact-container div[data-testid="stMetricValue"] { 
-        font-size: 1.8rem; /* Más pequeño para que quepan 5 */ 
-        color: #B71C1C; /* Rojo para valores absolutos (Inst/Visitas) */ 
+        font-size: 1.8rem; 
+        color: #B71C1C; 
     } 
     .metric-compact-container-total div[data-testid="stMetricValue"] { 
-        font-size: 1.8rem; /* Más pequeño para Total Ordenes */ 
-        color: #0D47A1; /* Azul oscuro para el total */ 
+        font-size: 1.8rem; 
+        color: #0D47A1; 
     }
 
     /* Estilo para los valores de porcentaje */ 
     .percentage-value-compact div[data-testid="stMetricValue"] { 
-        font-size: 1.8rem; /* Igual que el valor absoluto */ 
+        font-size: 1.8rem; 
         font-weight: bold; 
-        color: #1E88E5; /* Azul para diferenciación (tasa de porcentaje) */ 
+        color: #1E88E5; 
     } 
     .percentage-value-compact div[data-testid="stMetricLabel"] { 
-        font-size: 1rem; /* Mantiene la fuente del label */ 
-        color: #1E88E5; /* Color azul para el label del porcentaje */ 
+        font-size: 1rem; 
+        color: #1E88E5; 
     }
 
     /* Oculta los deltas estándar */ 
@@ -88,8 +94,8 @@ def set_page_config_and_style():
         margin-bottom: 0px; 
         display: flex; 
         justify-content: flex-end;
-        align-items: center; /* CENTRADO VERTICAL */
-        height: 100%; /* FORZAR ALTURA */
+        align-items: center; 
+        height: 100%; 
     } 
     .stButton>button { 
         height: 30px; 
@@ -97,13 +103,11 @@ def set_page_config_and_style():
         padding-bottom: 5px !important; 
     }
 
-    /* Omitir CSS antiguo y conflictivo */
-
     /* Estilo para que el st.data_editor sea lo más compacto posible */ 
     .stDataFrame { 
         margin-top: 0.5rem; 
     } 
-    .stDataFrame .css-1dp5fcv { /* Header del dataframe */ 
+    .stDataFrame .css-1dp5fcv { 
         padding: 0.2rem 0.5rem; 
     } 
     .stDataFrame .css-1dp5fcv button { 
@@ -400,7 +404,7 @@ else:
                 'A': [101, 102, 103, 104, 105, 106, 107, 108, 109, 110] * 10, 
                 'B': [f'O{i}' for i in range(100)], 
                 'F': ['Finalizada'] * 100, 
-                'G': ['INSTALACION', 'VISITA TÉCNICA', 'REPOSICION', 'INSTALACION', 'VISITA TÉCNICA'] * 20, # Se mantiene 'REPOSICION' en los datos de prueba, pero se ignora en la lógica de métricas.
+                'G': ['INSTALACION', 'VISITA TÉCNICA', 'REPOSICION', 'INSTALACION', 'VISITA TÉCNICA'] * 20, 
                 'O': ['Bogotá, 123', 'Bogotá, 456', 'Cali, 123', 'Cali, 456', 'Bogotá, 789', 'Medellín, 123', 'Medellín, 456', 'Medellín, 789', 'Cali, 789', 'Bogotá, 123'] * 10, 
                 'P': ['T|Juan Pérez', 'T|Juan Pérez', 'T|Pedro López', 'T|Pedro López', 'T|Ana Gómez', 'T|Ana Gómez', 'T|Juan Pérez', 'T|Juan Pérez', 'T|Pedro López', 'T|Ana Gómez'] * 10, 
                 'Q': ['C1']*100, 
@@ -501,37 +505,34 @@ else:
                         return df 
                     return df[df[col_key_filtro].astype(str).isin(selected_options)]
                     
-                # Función auxiliar para renderizar los gráficos de comparación vertical (Reposiciones eliminadas)
+                # Función auxiliar para renderizar los gráficos de comparación (APILADOS VERTICALMENTE)
                 def render_comparison_charts_vertical(df_comparacion, x_col, title_prefix, is_city_view=False):
+                    # El título del grupo de gráficos (Rendimiento por Técnico o Ubicación)
                     st.markdown(f"#### Rendimiento {title_prefix}")
                     
-                    # Chart 1: Instalaciones
-                    col_inst, col_vis = st.columns(2)
-                    
-                    with col_inst:
-                        with st.container(border=True):
-                            st.markdown("##### Instalaciones")
-                            fig = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=160)
-                            fig.update_layout(
-                                xaxis_title=None, 
-                                yaxis_title='Total', 
-                                margin=dict(t=20,b=10,l=10,r=10),
-                                xaxis={'tickangle': -45 if not is_city_view else 0}
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
+                    # Gráfico 1: Instalaciones (APILADO - Se usa la nueva altura reducida de 120)
+                    with st.container(border=True):
+                        st.markdown("##### Instalaciones")
+                        fig_inst = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=120) # ALTURA REDUCIDA
+                        fig_inst.update_layout(
+                            xaxis_title=None, 
+                            yaxis_title='Total', 
+                            margin=dict(t=20,b=10,l=10,r=10),
+                            xaxis={'tickangle': -45 if not is_city_view else 0}
+                        )
+                        st.plotly_chart(fig_inst, use_container_width=True)
 
-                    # Chart 2: Visitas
-                    with col_vis:
-                        with st.container(border=True):
-                            st.markdown("##### Visitas")
-                            fig = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=160)
-                            fig.update_layout(
-                                xaxis_title=None, 
-                                yaxis_title='Total', 
-                                margin=dict(t=20,b=10,l=10,r=10),
-                                xaxis={'tickangle': -45 if not is_city_view else 0}
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
+                    # Gráfico 2: Visitas (APILADO - Se usa la nueva altura reducida de 120)
+                    with st.container(border=True):
+                        st.markdown("##### Visitas")
+                        fig_vis = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=120) # ALTURA REDUCIDA
+                        fig_vis.update_layout(
+                            xaxis_title=None, 
+                            yaxis_title='Total', 
+                            margin=dict(t=20,b=10,l=10,r=10),
+                            xaxis={'tickangle': -45 if not is_city_view else 0}
+                        )
+                        st.plotly_chart(fig_vis, use_container_width=True)
                         
                 
                 # --- INICIO DEL PANEL DE CONTROL COMPACTO (Filtros y Métricas) --- 
@@ -539,7 +540,6 @@ else:
                     
                     # --- DECLARACIÓN ÚNICA DE COLUMNAS (1 Fila Horizontal) --- 
                     # Orden: [Fecha Desde, Fecha Hasta, Ubicación, Técnico, Total Abs., Total %, Inst. Abs., Inst. %, Vis. Abs., Vis. %]
-                    # Se ajustan los pesos para que los filtros sean más pequeños y las métricas más anchas (Total: 10 partes)
                     col_desde, col_hasta, col_ciu, col_tec, col_m_total_abs, col_m_total_tasa, col_m_inst_abs, col_m_inst_tasa, col_m_vis_abs, col_m_vis_tasa = st.columns(
                         [1.0, 1.0, 1.5, 1.5, 1.5, 0.5, 1.5, 1.0, 1.5, 1.0]
                     )
@@ -649,13 +649,18 @@ else:
 
                 st.markdown("---")
                 
-                # --- LAYOUT PRINCIPAL: 3 COLUMNAS [RAW_Ancho (5 partes)] | [Gráficos Izq (7 partes)] | [Gráfico Der (8 partes)] --- 
-                col_raw_mini, col_graphs_izq, col_graphs_der = st.columns([5, 7, 8])
-                
                 # ------------------------------------------------------------------------------------- 
-                # --- COLUMNA 1: TABLA DE DATOS RAW (ARRIBA IZQUIERDA Y ANCHA) --- 
+                # --- LAYOUT PRINCIPAL: DOS COLUMNAS (RAW vs. GRÁFICOS) --- 
+                # ------------------------------------------------------------------------------------- 
+                # Dividimos el espacio en dos columnas: 
+                # Columna 1 (izquierda): Tabla RAW (ancho 5) 
+                # Columna 2 (derecha): Todos los gráficos apilados verticalmente (ancho 15)
+                col_raw, col_graphs_group = st.columns([5, 15]) 
+
+                # ------------------------------------------------------------------------------------- 
+                # --- COLUMNA 1: TABLA DE DATOS RAW (IZQUIERDA) --- 
                 # -------------------------------------------------------------------------------------
-                with col_raw_mini:
+                with col_raw:
                     st.markdown(f"#### 📑 Datos RAW ({len(datos_filtrados)} registros)")
 
                     # Preparamos la vista de datos 
@@ -676,7 +681,7 @@ else:
 
                     df_to_display = datos_vista[cols_to_show] if cols_to_show else datos_vista
 
-                    # 2. Implementación de overflow horizontal (para que las celdas se vean a pesar del poco ancho) 
+                    # 2. Implementación de overflow horizontal 
                     st.markdown('<div style="overflow-x: auto;">', unsafe_allow_html=True) 
                     st.data_editor( 
                         df_to_display, 
@@ -685,7 +690,7 @@ else:
                         key='editable_raw_data_narrow', 
                         column_config={ 
                             col: st.column_config.Column( 
-                                width="small" # Mantenemos 'small' para el ancho interno, pero la columna contenedora es más ancha.
+                                width="small" 
                             ) for col in df_to_display.columns 
                         }, 
                         num_rows="fixed" 
@@ -693,110 +698,114 @@ else:
                     st.markdown('</div>', unsafe_allow_html=True)
 
                 # ------------------------------------------------------------------------------------- 
-                # --- COLUMNA 2: GRÁFICOS IZQUIERDOS (Tareas por Segmento) --- 
+                # --- COLUMNA 2: GRUPO DE GRÁFICOS (DERECHA) --- 
                 # -------------------------------------------------------------------------------------
-                with col_graphs_izq: 
-                    # --- GRÁFICO 1: TAREAS POR SEGMENTO FIJO (Mover a la Izquierda) --- 
-                    with st.container(border=True): 
-                        st.markdown("#### Tareas por Segmento (5 días)")
-
-                        if total_registros > 0: 
-                            datos_temp = datos_filtrados.copy() 
-                            datos_temp['DAY'] = datos_temp[COL_TEMP_DATETIME].dt.day 
-                            datos_temp['MONTH'] = datos_temp[COL_TEMP_DATETIME].dt.month 
-                            datos_temp['YEAR'] = datos_temp[COL_TEMP_DATETIME].dt.year 
-                            # Usa la función AJUSTADA de 5 días por segmento 
-                            datos_temp['FIXED_WEEK'] = datos_temp['DAY'].apply(calculate_fixed_week) 
-                            datos_temp[COL_SEGM_TIEMPO] = datos_temp['YEAR'].astype(str) + '-' + datos_temp['MONTH'].astype(str).str.zfill(2) + '-' + datos_temp['FIXED_WEEK'].astype(str).str.zfill(2)
-
-                            conteo_segmentos = datos_temp.groupby(COL_SEGM_TIEMPO).size().reset_index(name='Total_Tareas')
-
-                            df_escala = conteo_segmentos.sort_values(by=COL_SEGM_TIEMPO, ascending=True)
-
-                            def get_segment_range(year_month_segm): 
-                                parts = year_month_segm.split('-') 
-                                if len(parts) != 3: return "Inválido" 
-                                try: 
-                                    week_num, month_num, year = int(parts[2]), int(parts[1]), parts[0] 
-                                except ValueError: return "Inválido"
-
-                                ranges = { 
-                                    1: 'S1 (1-5)', 2: 'S2 (6-10)', 3: 'S3 (11-15)', 4: 'S4 (16-20)', 
-                                    5: 'S5 (21-25)', 6: 'S6 (26-30)', 7: 'S7 (31)' 
-                                } 
-                                month_name = pd.to_datetime(f"{month_num}", format='%m').strftime('%b') 
-                                return f"{ranges.get(week_num, f'S{week_num}')} {month_name}/{year[-2:]}"
-
-                            df_escala['Segmento_Label'] = df_escala[COL_SEGM_TIEMPO].apply(get_segment_range)
-
-                            fig = px.bar( 
-                                df_escala, 
-                                x='Segmento_Label', 
-                                y='Total_Tareas', 
-                                text='Total_Tareas', 
-                                color_discrete_sequence=['#4CAF50'] 
-                            ) 
-                            fig.update_layout( 
-                                uniformtext_minsize=8, uniformtext_mode='hide', 
-                                xaxis_title=None, 
-                                yaxis_title='Tareas', 
-                                margin=dict(t=20, b=10, l=10, r=10), 
-                                height=400, # <-- ALTURA REDUCIDA A 400px
-                                xaxis={'tickangle': -45}
-                            ) 
-                            fig.update_traces(textposition='outside') 
-                            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}) 
-                        else: 
-                            st.info("No hay datos para el gráfico semanal.")
-
-                # ------------------------------------------------------------------------------------- 
-                # --- COLUMNA 3: GRÁFICO DERECHO (Top 5 Técnicos) --- 
-                # -------------------------------------------------------------------------------------
-                with col_graphs_der: 
-                    # --- GRÁFICO 2: TOP 5 TÉCNICOS PIE CHART (Mover a la Derecha) --- 
-                    with st.container(border=True): 
-                        st.markdown("#### Top 5 Técnicos") 
-                        if COL_FILTRO_TECNICO in datos_filtrados.columns and total_registros > 0: 
-                            top_tecnicos = datos_filtrados[COL_FILTRO_TECNICO].value_counts().head(5).reset_index() 
-                            top_tecnicos.columns = ['Técnico', 'Total Tareas']
-
-                            fig_pie = px.pie(top_tecnicos, values='Total Tareas', names='Técnico', hole=.4, color_discrete_sequence=px.colors.qualitative.Pastel) 
-                            fig_pie.update_layout(showlegend=True, margin=dict(l=0, r=0, t=20, b=0), height=400) # <-- ALTURA REDUCIDA A 400px
-                            st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False}) 
-                        else: 
-                            st.info("Datos insuficientes para Top Técnico.")
-
-
-                # ------------------------------------------------------------------------------------- 
-                # --- SECCIÓN DE RENDIMIENTO DINÁMICO (Ancho completo, debajo de todo) --- 
-                # -------------------------------------------------------------------------------------
-
-                st.markdown("---")
-                
-                show_comparison_by_technician = (len(filtro_ciudad) == 1 and COL_FILTRO_TECNICO in datos_filtrados.columns)
-
-                if show_comparison_by_technician:
-                    df_comparacion = prepare_comparison_data(datos_filtrados) 
-                    if not df_comparacion.empty: 
-                        render_comparison_charts_vertical( 
-                            df_comparacion, 
-                            COL_FILTRO_TECNICO, 
-                            f"por Técnico en: **{filtro_ciudad[0]}**", 
-                            is_city_view=False 
-                        ) 
-                    else:
-                        st.info("No hay datos de rendimiento por técnico en la ubicación seleccionada.")
-                
-                else:
-                    st.info("💡 Selecciona **una sola ubicación** para ver el detalle por técnico.") 
+                with col_graphs_group: 
                     
-                    df_comparacion_city = prepare_city_comparison_data(datos_filtrados)
-                    if not df_comparacion_city.empty:
-                        render_comparison_charts_vertical(
-                            df_comparacion_city, 
-                            COL_FILTRO_CIUDAD, 
-                            "por Ubicación", 
-                            is_city_view=True
-                        )
-                    else:
-                        st.info("No hay datos para la comparación por ubicación con los filtros actuales.")
+                    # 1. Primera Fila de Gráficos (Anidada)
+                    col_graphs_izq, col_graphs_der = st.columns([8, 7])
+
+                    # --- GRÁFICO TAREAS POR SEGMENTO --- 
+                    with col_graphs_izq: 
+                        with st.container(border=True): 
+                            st.markdown("#### Tareas por Segmento (5 días)")
+
+                            if total_registros > 0: 
+                                datos_temp = datos_filtrados.copy() 
+                                datos_temp['DAY'] = datos_temp[COL_TEMP_DATETIME].dt.day 
+                                datos_temp['MONTH'] = datos_temp[COL_TEMP_DATETIME].dt.month 
+                                datos_temp['YEAR'] = datos_temp[COL_TEMP_DATETIME].dt.year 
+                                # Usa la función AJUSTADA de 5 días por segmento 
+                                datos_temp['FIXED_WEEK'] = datos_temp['DAY'].apply(calculate_fixed_week) 
+                                datos_temp[COL_SEGM_TIEMPO] = datos_temp['YEAR'].astype(str) + '-' + datos_temp['MONTH'].astype(str).str.zfill(2) + '-' + datos_temp['FIXED_WEEK'].astype(str).str.zfill(2)
+
+                                conteo_segmentos = datos_temp.groupby(COL_SEGM_TIEMPO).size().reset_index(name='Total_Tareas')
+
+                                df_escala = conteo_segmentos.sort_values(by=COL_SEGM_TIEMPO, ascending=True)
+
+                                def get_segment_range(year_month_segm): 
+                                    parts = year_month_segm.split('-') 
+                                    if len(parts) != 3: return "Inválido" 
+                                    try: 
+                                        week_num, month_num, year = int(parts[2]), int(parts[1]), parts[0] 
+                                    except ValueError: return "Inválido"
+
+                                    ranges = { 
+                                        1: 'S1 (1-5)', 2: 'S2 (6-10)', 3: 'S3 (11-15)', 4: 'S4 (16-20)', 
+                                        5: 'S5 (21-25)', 6: 'S6 (26-30)', 7: 'S7 (31)' 
+                                    } 
+                                    month_name = pd.to_datetime(f"{month_num}", format='%m').strftime('%b') 
+                                    return f"{ranges.get(week_num, f'S{week_num}')} {month_name}/{year[-2:]}"
+
+                                df_escala['Segmento_Label'] = df_escala[COL_SEGM_TIEMPO].apply(get_segment_range)
+
+                                fig = px.bar( 
+                                    df_escala, 
+                                    x='Segmento_Label', 
+                                    y='Total_Tareas', 
+                                    text='Total_Tareas', 
+                                    color_discrete_sequence=['#4CAF50'] 
+                                ) 
+                                fig.update_layout( 
+                                    uniformtext_minsize=8, uniformtext_mode='hide', 
+                                    xaxis_title=None, 
+                                    yaxis_title='Tareas', 
+                                    margin=dict(t=20, b=10, l=10, r=10), 
+                                    height=250, # ALTURA REDUCIDA
+                                    xaxis={'tickangle': -45}
+                                ) 
+                                fig.update_traces(textposition='outside') 
+                                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}) 
+                            else: 
+                                st.info("No hay datos para el gráfico semanal.")
+
+                    # --- GRÁFICO TOP 5 TÉCNICOS --- 
+                    with col_graphs_der: 
+                        with st.container(border=True): 
+                            st.markdown("#### Top 5 Técnicos") 
+                            if COL_FILTRO_TECNICO in datos_filtrados.columns and total_registros > 0: 
+                                top_tecnicos = datos_filtrados[COL_FILTRO_TECNICO].value_counts().head(5).reset_index() 
+                                top_tecnicos.columns = ['Técnico', 'Total Tareas']
+
+                                fig_pie = px.pie(top_tecnicos, values='Total Tareas', names='Técnico', hole=.4, color_discrete_sequence=px.colors.qualitative.Pastel) 
+                                fig_pie.update_layout(showlegend=True, margin=dict(l=0, r=0, t=20, b=0), height=250) # ALTURA REDUCIDA
+                                st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False}) 
+                            else: 
+                                st.info("Datos insuficientes para Top Técnico.")
+                    
+                    
+                    # *************************************************************************************
+                    # *** SECCIÓN: RENDIMIENTO DINÁMICO (ALTURA REDUCIDA) ***
+                    # *************************************************************************************
+                    st.markdown("---") # Separador para la nueva sección
+                    st.markdown("### 📈 Rendimiento Detallado de Órdenes")
+
+                    # Contenedor principal para la sección de rendimiento
+                    with st.container(border=True): 
+                        
+                        show_comparison_by_technician = (len(filtro_ciudad) == 1 and COL_FILTRO_TECNICO in datos_filtrados.columns)
+
+                        if show_comparison_by_technician:
+                            df_comparacion = prepare_comparison_data(datos_filtrados) 
+                            if not df_comparacion.empty: 
+                                render_comparison_charts_vertical( 
+                                    df_comparacion, 
+                                    COL_FILTRO_TECNICO, 
+                                    f"por Técnico en: **{filtro_ciudad[0]}**", 
+                                    is_city_view=False 
+                                ) 
+                            else:
+                                st.info("No hay datos de rendimiento por técnico en la ubicación seleccionada.")
+                        
+                        else:
+                            df_comparacion_city = prepare_city_comparison_data(datos_filtrados)
+                            if not df_comparacion_city.empty:
+                                render_comparison_charts_vertical(
+                                    df_comparacion_city, 
+                                    COL_FILTRO_CIUDAD, 
+                                    "por Ubicación", 
+                                    is_city_view=True
+                                )
+                            else:
+                                st.info("No hay datos para la comparación por ubicación con los filtros actuales.")
+                    # *************************************************************************************
