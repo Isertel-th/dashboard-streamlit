@@ -162,7 +162,6 @@ COL_FILTRO_CIUDAD = '_Filtro_Ubicacion_'
 COL_SEGM_TIEMPO = '_SEGM_AÑO_MES_' 
 COL_TIPO_INST = '_ES_INSTALACION_' 
 COL_TIPO_VISITA = '_ES_VISITA_'
-COL_TIPO_REPOSICION = '_ES_REPOSICION_' # Mantenemos la columna temporal para el cálculo de KPIs, aunque no se grafique.
 
 # --- FUNCIONES DE LIMPIEZA PARA FILTROS --- 
 @st.cache_data 
@@ -198,7 +197,7 @@ def calculate_fixed_week(day):
     else: # 31 
         return 7
 
-# --- FUNCIONES DE COMPARACIÓN --- 
+# --- FUNCIONES DE COMPARACIÓN (Reposiciones eliminadas) --- 
 @st.cache_data 
 def prepare_comparison_data(df): 
     if df.empty: 
@@ -210,25 +209,21 @@ def prepare_comparison_data(df):
         tipo_orden = df_temp[COL_TIPO_ORDEN_KEY].astype(str)
         df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
         df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TÉCNICA', case=False, na=False).astype(int)
-        df_temp[COL_TIPO_REPOSICION] = tipo_orden.str.contains('REPOSICION', case=False, na=False).astype(int) 
     else: 
         df_temp[COL_TIPO_INST] = 0 
         df_temp[COL_TIPO_VISITA] = 0
-        df_temp[COL_TIPO_REPOSICION] = 0 
 
     if COL_FILTRO_TECNICO not in df_temp.columns or COL_FILTRO_CIUDAD not in df_temp.columns: 
         return pd.DataFrame()
 
-    # Se agrupa por CIUDAD y TÉCNICO (útil si se filtra por una sola ciudad) 
+    # Se agrupa por CIUDAD y TÉCNICO
     df_grouped = df_temp.groupby([COL_FILTRO_CIUDAD, COL_FILTRO_TECNICO]).agg( 
         Total_Instalaciones=(COL_TIPO_INST, 'sum'), 
         Total_Visitas=(COL_TIPO_VISITA, 'sum'),
-        Total_Reposiciones=(COL_TIPO_REPOSICION, 'sum') 
     ).reset_index()
 
     df_grouped['Total_Instalaciones'] = df_grouped['Total_Instalaciones'].astype(int) 
     df_grouped['Total_Visitas'] = df_grouped['Total_Visitas'].astype(int)
-    df_grouped['Total_Reposiciones'] = df_grouped['Total_Reposiciones'].astype(int) 
 
     return df_grouped.sort_values(by=COL_FILTRO_TECNICO)
 
@@ -243,11 +238,9 @@ def prepare_city_comparison_data(df):
         tipo_orden = df_temp[COL_TIPO_ORDEN_KEY].astype(str)
         df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
         df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TÉCNICA', case=False, na=False).astype(int)
-        df_temp[COL_TIPO_REPOSICION] = tipo_orden.str.contains('REPOSICION', case=False, na=False).astype(int) 
     else: 
         df_temp[COL_TIPO_INST] = 0 
         df_temp[COL_TIPO_VISITA] = 0
-        df_temp[COL_TIPO_REPOSICION] = 0 
 
     if COL_FILTRO_CIUDAD not in df_temp.columns: 
         return pd.DataFrame()
@@ -256,12 +249,10 @@ def prepare_city_comparison_data(df):
     df_grouped = df_temp.groupby([COL_FILTRO_CIUDAD]).agg( 
         Total_Instalaciones=(COL_TIPO_INST, 'sum'), 
         Total_Visitas=(COL_TIPO_VISITA, 'sum'),
-        Total_Reposiciones=(COL_TIPO_REPOSICION, 'sum') 
     ).reset_index()
 
     df_grouped['Total_Instalaciones'] = df_grouped['Total_Instalaciones'].astype(int) 
     df_grouped['Total_Visitas'] = df_grouped['Total_Visitas'].astype(int)
-    df_grouped['Total_Reposiciones'] = df_grouped['Total_Reposiciones'].astype(int) 
 
     return df_grouped.sort_values(by=COL_FILTRO_CIUDAD)
 
@@ -409,7 +400,7 @@ else:
                 'A': [101, 102, 103, 104, 105, 106, 107, 108, 109, 110] * 10, 
                 'B': [f'O{i}' for i in range(100)], 
                 'F': ['Finalizada'] * 100, 
-                'G': ['INSTALACION', 'VISITA TÉCNICA', 'REPOSICION', 'INSTALACION', 'REPOSICION'] * 20, # Añadido Reposicion para prueba
+                'G': ['INSTALACION', 'VISITA TÉCNICA', 'REPOSICION', 'INSTALACION', 'VISITA TÉCNICA'] * 20, # Se mantiene 'REPOSICION' en los datos de prueba, pero se ignora en la lógica de métricas.
                 'O': ['Bogotá, 123', 'Bogotá, 456', 'Cali, 123', 'Cali, 456', 'Bogotá, 789', 'Medellín, 123', 'Medellín, 456', 'Medellín, 789', 'Cali, 789', 'Bogotá, 123'] * 10, 
                 'P': ['T|Juan Pérez', 'T|Juan Pérez', 'T|Pedro López', 'T|Pedro López', 'T|Ana Gómez', 'T|Ana Gómez', 'T|Juan Pérez', 'T|Juan Pérez', 'T|Pedro López', 'T|Ana Gómez'] * 10, 
                 'Q': ['C1']*100, 
@@ -510,51 +501,45 @@ else:
                         return df 
                     return df[df[col_key_filtro].astype(str).isin(selected_options)]
                     
-                # Función auxiliar para renderizar los gráficos de comparación vertical (REPOSICIONES ELIMINADAS)
+                # Función auxiliar para renderizar los gráficos de comparación vertical (Reposiciones eliminadas)
                 def render_comparison_charts_vertical(df_comparacion, x_col, title_prefix, is_city_view=False):
                     st.markdown(f"#### Rendimiento {title_prefix}")
                     
                     # Chart 1: Instalaciones
-                    with st.container(border=True):
-                        st.markdown("##### Instalaciones")
-                        fig = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=160)
-                        fig.update_layout(
-                            xaxis_title=None, 
-                            yaxis_title='Total', 
-                            margin=dict(t=20,b=10,l=10,r=10),
-                            xaxis={'tickangle': -45 if not is_city_view else 0}
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
+                    col_inst, col_vis = st.columns(2)
+                    
+                    with col_inst:
+                        with st.container(border=True):
+                            st.markdown("##### Instalaciones")
+                            fig = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=160)
+                            fig.update_layout(
+                                xaxis_title=None, 
+                                yaxis_title='Total', 
+                                margin=dict(t=20,b=10,l=10,r=10),
+                                xaxis={'tickangle': -45 if not is_city_view else 0}
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
 
                     # Chart 2: Visitas
-                    with st.container(border=True):
-                        st.markdown("##### Visitas")
-                        fig = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=160)
-                        fig.update_layout(
-                            xaxis_title=None, 
-                            yaxis_title='Total', 
-                            margin=dict(t=20,b=10,l=10,r=10),
-                            xaxis={'tickangle': -45 if not is_city_view else 0}
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
+                    with col_vis:
+                        with st.container(border=True):
+                            st.markdown("##### Visitas")
+                            fig = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=160)
+                            fig.update_layout(
+                                xaxis_title=None, 
+                                yaxis_title='Total', 
+                                margin=dict(t=20,b=10,l=10,r=10),
+                                xaxis={'tickangle': -45 if not is_city_view else 0}
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
                         
-                    # ELIMINADO: Chart 3: Reposiciones
-                    # with st.container(border=True):
-                    #     st.markdown("##### Reposiciones")
-                    #     fig = px.line(df_comparacion, x=x_col, y='Total_Reposiciones', markers=True, text='Total_Reposiciones', height=160)
-                    #     fig.update_layout(
-                    #         xaxis_title=None, 
-                    #         yaxis_title='Total', 
-                    #         margin=dict(t=20,b=10,l=10,r=10),
-                    #         xaxis={'tickangle': -45 if not is_city_view else 0}
-                    #     )
-                    #     st.plotly_chart(fig, use_container_width=True)
                 
-                # --- INICIO DEL PANEL DE CONTROL COMPACTO (Filtros y Métricas) (sin cambios) --- 
+                # --- INICIO DEL PANEL DE CONTROL COMPACTO (Filtros y Métricas) --- 
                 with st.container(border=True):
                     
                     # --- FILA 1: FILTROS DE FECHA y MÉTRICAS PRINCIPALES (Absolutos) --- 
-                    col_desde, col_hasta, col_m_total, col_m_inst_abs, col_m_vis_abs, col_m_repo_abs, _ = st.columns([0.15, 0.15, 0.15, 0.15, 0.15, 0.15, 0.1])
+                    # Columnas ajustadas: Total (1), Instalaciones (1), Visitas (1)
+                    col_desde, col_hasta, col_m_total, col_m_inst_abs, col_m_vis_abs, col_spacer_l, col_spacer_r = st.columns([0.15, 0.15, 0.2, 0.2, 0.2, 0.05, 0.05])
                     
                     # Lógica de Fechas (Filtrado) 
                     with col_desde: 
@@ -594,20 +579,18 @@ else:
                     df_domain_tec = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad_actual) 
                     opciones_tecnico = get_multiselect_options(df_domain_tec, COL_FILTRO_TECNICO)
 
-                    # --- CÁLCULO DE MÉTRICAS CLAVE --- 
+                    # --- CÁLCULO DE MÉTRICAS CLAVE (Reposiciones eliminadas) --- 
                     total_registros = len(datos_filtrados) 
                     if COL_TIPO_ORDEN_KEY in datos_filtrados.columns: 
                         tipo_orden = datos_filtrados[COL_TIPO_ORDEN_KEY].astype(str)
                         total_instalaciones = len(datos_filtrados[tipo_orden.str.contains('INSTALACION', case=False, na=False)]) 
                         total_visitas_tecnicas = len(datos_filtrados[tipo_orden.str.contains('VISITA TÉCNICA', case=False, na=False)])
-                        total_reposiciones = len(datos_filtrados[tipo_orden.str.contains('REPOSICION', case=False, na=False)]) 
                     else: 
-                        total_instalaciones, total_visitas_tecnicas, total_reposiciones = 0, 0, 0
+                        total_instalaciones, total_visitas_tecnicas = 0, 0 
 
-                    # CÁLCULO DE PORCENTAJES 
+                    # CÁLCULO DE PORCENTAJES (Reposiciones eliminadas)
                     porc_instalaciones = (total_instalaciones / total_registros) * 100 if total_registros > 0 else 0 
                     porc_visitas = (total_visitas_tecnicas / total_registros) * 100 if total_registros > 0 else 0
-                    porc_reposiciones = (total_reposiciones / total_registros) * 100 if total_registros > 0 else 0 
 
                     # --- RENDERIZADO DE MÉTRICAS COMPACTAS (Fila 1: Absolutos) --- 
                     with col_m_total: 
@@ -625,13 +608,21 @@ else:
                         st.metric(label="Visitas Téc.", value=f"{total_visitas_tecnicas:,}") 
                         st.markdown('</div>', unsafe_allow_html=True)
                         
-                    with col_m_repo_abs: 
+                    # Los spacers ahora ocupan el espacio de la métrica eliminada para centrar mejor
+                    with col_spacer_l: 
                         st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
-                        st.metric(label="Reposiciones", value=f"{total_reposiciones:,}") 
+                        st.metric(label=" ", value=" ") 
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        
+                    with col_spacer_r: 
+                        st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
+                        st.metric(label=" ", value=" ") 
                         st.markdown('</div>', unsafe_allow_html=True)
 
+
                     # --- FILA 2: FILTROS DE SEGMENTACIÓN Y TASAS DE PORCENTAJE (Alineados) --- 
-                    col_ciu, col_tec, col_m_total_tasa, col_m_inst_tasa, col_m_vis_tasa, col_m_repo_tasa, col_spacer_h = st.columns([0.15, 0.15, 0.15, 0.15, 0.15, 0.15, 0.1])
+                    # Columnas ajustadas para la redistribución de espacio
+                    col_ciu, col_tec, col_m_total_tasa, col_m_inst_tasa, col_m_vis_tasa, col_spacer_l2, col_spacer_r2 = st.columns([0.15, 0.15, 0.2, 0.2, 0.2, 0.05, 0.05])
 
                     with col_ciu:
                         filtro_ciudad = st.multiselect(f"**{COL_CIUDAD_DESCRIPTIVA}**:", options=opciones_ciudad, default=filtro_ciudad_actual, key='multiselect_ubicacion')
@@ -654,10 +645,16 @@ else:
                         st.metric(label="Tasa %", value=f"{porc_visitas:.1f}%") 
                         st.markdown('</div>', unsafe_allow_html=True)
                         
-                    with col_m_repo_tasa: 
+                    with col_spacer_l2: # Spacers para ocupar el espacio
                         st.markdown('<div class="percentage-value-compact">', unsafe_allow_html=True) 
-                        st.metric(label="Tasa %", value=f"{porc_reposiciones:.1f}%") 
+                        st.metric(label=" ", value=" ") 
                         st.markdown('</div>', unsafe_allow_html=True)
+                        
+                    with col_spacer_r2: # Spacers para ocupar el espacio
+                        st.markdown('<div class="percentage-value-compact">', unsafe_allow_html=True) 
+                        st.metric(label=" ", value=" ") 
+                        st.markdown('</div>', unsafe_allow_html=True)
+
                     
                     # APLICACIÓN FINAL DE FILTROS DE SEGMENTACIÓN 
                     df_final = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad) 
