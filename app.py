@@ -510,10 +510,10 @@ else:
                     # El título del grupo de gráficos (Rendimiento por Técnico o Ubicación)
                     st.markdown(f"#### Rendimiento {title_prefix}")
                     
-                    # Gráfico 1: Instalaciones (APILADO - Se usa la nueva altura reducida de 120)
+                    # Gráfico 1: Instalaciones (APILADO - Se usa la nueva altura REDUCIDA de 100)
                     with st.container(border=True):
                         st.markdown("##### Instalaciones")
-                        fig_inst = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=120) # ALTURA REDUCIDA
+                        fig_inst = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=100) # ALTURA REDUCIDA
                         fig_inst.update_layout(
                             xaxis_title=None, 
                             yaxis_title='Total', 
@@ -522,10 +522,10 @@ else:
                         )
                         st.plotly_chart(fig_inst, use_container_width=True)
 
-                    # Gráfico 2: Visitas (APILADO - Se usa la nueva altura reducida de 120)
+                    # Gráfico 2: Visitas (APILADO - Se usa la nueva altura REDUCIDA de 100)
                     with st.container(border=True):
                         st.markdown("##### Visitas")
-                        fig_vis = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=120) # ALTURA REDUCIDA
+                        fig_vis = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=100) # ALTURA REDUCIDA
                         fig_vis.update_layout(
                             xaxis_title=None, 
                             yaxis_title='Total', 
@@ -751,7 +751,7 @@ else:
                                     xaxis_title=None, 
                                     yaxis_title='Tareas', 
                                     margin=dict(t=20, b=10, l=10, r=10), 
-                                    height=250, # ALTURA REDUCIDA
+                                    height=200, # ALTURA REDUCIDA (200)
                                     xaxis={'tickangle': -45}
                                 ) 
                                 fig.update_traces(textposition='outside') 
@@ -768,7 +768,7 @@ else:
                                 top_tecnicos.columns = ['Técnico', 'Total Tareas']
 
                                 fig_pie = px.pie(top_tecnicos, values='Total Tareas', names='Técnico', hole=.4, color_discrete_sequence=px.colors.qualitative.Pastel) 
-                                fig_pie.update_layout(showlegend=True, margin=dict(l=0, r=0, t=20, b=0), height=250) # ALTURA REDUCIDA
+                                fig_pie.update_layout(showlegend=True, margin=dict(l=0, r=0, t=20, b=0), height=200) # ALTURA REDUCIDA (200)
                                 st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False}) 
                             else: 
                                 st.info("Datos insuficientes para Top Técnico.")
