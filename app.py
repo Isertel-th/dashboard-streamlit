@@ -584,10 +584,24 @@ else:
                     
                     # --- RENDERIZADO DE FILTROS DE SEGMENTACIÓN (Ubicación y Técnico) ---
                     with col_ciu:
-                        filtro_ciudad = st.multiselect(f"**{COL_CIUDAD_DESCRIPTIVA}**:", options=opciones_ciudad, default=filtro_ciudad_actual, key='multiselect_ubicacion')
+                        # CORRECCIÓN AQUÍ: Se añade el placeholder
+                        filtro_ciudad = st.multiselect(
+                            f"**{COL_CIUDAD_DESCRIPTIVA}**:", 
+                            options=opciones_ciudad, 
+                            default=filtro_ciudad_actual, 
+                            key='multiselect_ubicacion',
+                            placeholder="Ciudad" # <-- Placeholder añadido
+                        )
 
                     with col_tec:
-                        filtro_tecnico = st.multiselect(f"**{COL_TECNICO_DESCRIPTIVA}**:", options=opciones_tecnico, default=filtro_tecnico_actual, key='multiselect_tecnico')
+                        # CORRECCIÓN AQUÍ: Se añade el placeholder
+                        filtro_tecnico = st.multiselect(
+                            f"**{COL_TECNICO_DESCRIPTIVA}**:", 
+                            options=opciones_tecnico, 
+                            default=filtro_tecnico_actual, 
+                            key='multiselect_tecnico',
+                            placeholder="Código" # <-- Placeholder añadido
+                        )
                         
                     # APLICACIÓN FINAL DE FILTROS DE SEGMENTACIÓN 
                     # Se aplican los filtros de multiselect al DataFrame ya filtrado por fecha (df_all)
