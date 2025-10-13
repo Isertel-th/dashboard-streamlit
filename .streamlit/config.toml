@@ -1,18 +1,18 @@
 [theme]
 # Base: 'dark' para un aspecto moderno, 'light' para un aspecto clásico.
-base = "dark" 
+base = "light" 
 
 # primaryColor: Color principal usado en botones, enlaces y el delta de st.metric.
 primaryColor = "#007BFF" 
 
 # backgroundColor: El fondo principal de la aplicación.
-backgroundColor = "#0E1117" 
+backgroundColor = "#e5e5e5ff" 
 
 # secondaryBackgroundColor: Color de fondo para la barra lateral (sidebar) y contenedores.
 secondaryBackgroundColor = "#262730"
 
 # textColor: Color principal del texto.
-textColor = "#BC2929"
+textColor = "#2D56D1"
 
 #color rojo "#BC2929"
 #color verde "#00BA41"
