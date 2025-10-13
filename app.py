@@ -14,7 +14,7 @@ def set_page_config_and_style():
     <style> 
     /* Ahorro vertical general: Reducir padding en el área principal de la aplicación */ 
     .block-container { 
-        padding-top: 1rem !important; 
+        padding-top: 4rem !important; /* AJUSTE CLAVE: Aumentado a 4rem (aprox. 3cm) para bajar la cabecera y evitar que la tape el banner nativo de Streamlit */ 
         padding-bottom: 0rem !important; 
         padding-left: 1rem !important; 
         padding-right: 1rem !important; 
@@ -88,8 +88,8 @@ def set_page_config_and_style():
         margin-bottom: 0px; 
         display: flex; 
         justify-content: flex-end;
-        align-items: center; /* **Añadido para centrar verticalmente el mensaje de bienvenida** */
-        height: 100%; /* **Añadido para forzar la altura** */
+        align-items: center; /* CENTRADO VERTICAL */
+        height: 100%; /* FORZAR ALTURA */
     } 
     .stButton>button { 
         height: 30px; 
@@ -97,16 +97,10 @@ def set_page_config_and_style():
         padding-bottom: 5px !important; 
     }
 
-    /* **CORRECCIÓN:** Se eliminan los estilos que empujaban el contenido y el título hacia abajo. */
-    .main { 
-        padding-top: 0px !important; /* Reset del padding superior */
-    }
-    
-    /* El encabezado (título + bienvenida + cerrar sesión) necesita un pequeño margen superior */
-    /* Lo manejaremos directamente en el markdown del título si es necesario, pero 
-       dejamos el padding de .block-container en 1rem para el resto del contenido. */
-    
-    /* El estilo header-push-down ya no es necesario y se elimina. */
+    /* SE ELIMINA CÓDIGO CSS ANTIGUO Y CONFLICTIVO */
+    /* .main { padding-top: 60px !important; } */
+    /* .main [data-testid="stTitle"] { margin-top: 1rem; margin-bottom: 0.5rem; } */
+    /* .header-push-down { margin-top: 45px !important; } */
 
     /* Estilo para que el st.data_editor sea lo más compacto posible */ 
     .stDataFrame { 
@@ -312,20 +306,17 @@ if not st.session_state.login:
                 st.error("Usuario o contraseña incorrectos")
 
 else: 
-    # --- Interfaz Principal (CABECERA ALINEADA: Título | Bienvenida | Cerrar Sesión) --- 
+    # --- Interfaz Principal (CABECERA ALINEADA Y BAJADA) --- 
     
-    # Se eliminaron los divs de push-down y se usa un layout de columnas único.
-    # Se ajustan las proporciones para alinear (4: título, 4: espacio, 2: bienvenida, 1: botón)
+    # [4: Título] | [4: Espacio] | [2: Bienvenida] | [1: Botón]
     col_title, col_spacer, col_welcome, col_logout = st.columns([4, 4, 2, 1]) 
 
-    # 1. Título principal
+    # 1. Título principal (Usando markdown para más control de altura que st.title)
     with col_title:
-        # Usamos markdown para tener más control sobre el estilo y evitar los grandes márgenes de st.title()
         st.markdown("## 📊 Estadístico Isertel") 
 
     # 2. Mensaje de bienvenida
     with col_welcome: 
-        # Usamos el contenedor de éxito con el CSS modificado para centrar verticalmente
         st.success(f"Bienvenido {st.session_state.usuario} ({st.session_state.rol})", icon=None) 
 
     # 3. Botón de cerrar sesión
@@ -337,7 +328,6 @@ else:
             use_container_width=True 
         )
 
-    # El resto del código continúa sin cambios.
     # --- LÓGICA DE CARGA Y COMBINACIÓN DE DATOS (CON CORRECCIÓN DE ERRORES) --- 
     archivos_para_combinar_nombres = [f for f in os.listdir(UPLOAD_FOLDER) if f.lower().endswith(('.xlsx', '.xls', '.csv'))] 
     num_archivos_cargados = len(archivos_para_combinar_nombres) 
