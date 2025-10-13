@@ -537,11 +537,14 @@ else:
                 # --- INICIO DEL PANEL DE CONTROL COMPACTO (Filtros y Métricas) --- 
                 with st.container(border=True):
                     
-                    # --- FILA 1: FILTROS DE FECHA y MÉTRICAS PRINCIPALES (Absolutos) --- 
-                    # Columnas ajustadas: Total (1), Instalaciones (1), Visitas (1)
-                    col_desde, col_hasta, col_m_total, col_m_inst_abs, col_m_vis_abs, col_spacer_l, col_spacer_r = st.columns([0.15, 0.15, 0.2, 0.2, 0.2, 0.05, 0.05])
-                    
-                    # Lógica de Fechas (Filtrado) 
+                    # --- DECLARACIÓN ÚNICA DE COLUMNAS (1 Fila Horizontal) --- 
+                    # Orden: [Fecha Desde, Fecha Hasta, Ubicación, Técnico, Total Abs., Total %, Inst. Abs., Inst. %, Vis. Abs., Vis. %]
+                    # Se ajustan los pesos para que los filtros sean más pequeños y las métricas más anchas (Total: 10 partes)
+                    col_desde, col_hasta, col_ciu, col_tec, col_m_total_abs, col_m_total_tasa, col_m_inst_abs, col_m_inst_tasa, col_m_vis_abs, col_m_vis_tasa = st.columns(
+                        [1.0, 1.0, 1.5, 1.5, 1.5, 0.5, 1.5, 1.0, 1.5, 1.0]
+                    )
+
+                    # Lógica de Fechas (Filtrado) - Se mantiene en las primeras 2 columnas
                     with col_desde: 
                         min_date_global = datos_filtrados[COL_TEMP_DATETIME].min().replace(hour=0, minute=0, second=0, microsecond=0) 
                         max_date_global = datos_filtrados[COL_TEMP_DATETIME].max().replace(hour=0, minute=0, second=0, microsecond=0) 
@@ -578,8 +581,8 @@ else:
 
                     df_domain_tec = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad_actual) 
                     opciones_tecnico = get_multiselect_options(df_domain_tec, COL_FILTRO_TECNICO)
-
-                    # --- CÁLCULO DE MÉTRICAS CLAVE (Reposiciones eliminadas) --- 
+                    
+                    # --- CÁLCULO DE MÉTRICAS CLAVE (antes de su renderizado) --- 
                     total_registros = len(datos_filtrados) 
                     if COL_TIPO_ORDEN_KEY in datos_filtrados.columns: 
                         tipo_orden = datos_filtrados[COL_TIPO_ORDEN_KEY].astype(str)
@@ -588,79 +591,60 @@ else:
                     else: 
                         total_instalaciones, total_visitas_tecnicas = 0, 0 
 
-                    # CÁLCULO DE PORCENTAJES (Reposiciones eliminadas)
+                    # CÁLCULO DE PORCENTAJES
                     porc_instalaciones = (total_instalaciones / total_registros) * 100 if total_registros > 0 else 0 
                     porc_visitas = (total_visitas_tecnicas / total_registros) * 100 if total_registros > 0 else 0
-
-                    # --- RENDERIZADO DE MÉTRICAS COMPACTAS (Fila 1: Absolutos) --- 
-                    with col_m_total: 
-                        st.markdown('<div class="metric-compact-container-total">', unsafe_allow_html=True) 
-                        st.metric(label="Total Ordenes", value=f"{total_registros:,}") 
-                        st.markdown('</div>', unsafe_allow_html=True)
-
-                    with col_m_inst_abs: 
-                        st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
-                        st.metric(label="Instalaciones", value=f"{total_instalaciones:,}") 
-                        st.markdown('</div>', unsafe_allow_html=True)
-
-                    with col_m_vis_abs: 
-                        st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
-                        st.metric(label="Visitas Téc.", value=f"{total_visitas_tecnicas:,}") 
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        
-                    # Los spacers ahora ocupan el espacio de la métrica eliminada para centrar mejor
-                    with col_spacer_l: 
-                        st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
-                        st.metric(label=" ", value=" ") 
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        
-                    with col_spacer_r: 
-                        st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
-                        st.metric(label=" ", value=" ") 
-                        st.markdown('</div>', unsafe_allow_html=True)
-
-
-                    # --- FILA 2: FILTROS DE SEGMENTACIÓN Y TASAS DE PORCENTAJE (Alineados) --- 
-                    # Columnas ajustadas para la redistribución de espacio
-                    col_ciu, col_tec, col_m_total_tasa, col_m_inst_tasa, col_m_vis_tasa, col_spacer_l2, col_spacer_r2 = st.columns([0.15, 0.15, 0.2, 0.2, 0.2, 0.05, 0.05])
-
+                    
+                    # --- RENDERIZADO DE FILTROS DE SEGMENTACIÓN (Ubicación y Técnico) ---
                     with col_ciu:
                         filtro_ciudad = st.multiselect(f"**{COL_CIUDAD_DESCRIPTIVA}**:", options=opciones_ciudad, default=filtro_ciudad_actual, key='multiselect_ubicacion')
 
                     with col_tec:
                         filtro_tecnico = st.multiselect(f"**{COL_TECNICO_DESCRIPTIVA}**:", options=opciones_tecnico, default=filtro_tecnico_actual, key='multiselect_tecnico')
-                        
+
+
+                    # --- RENDERIZADO DE MÉTRICAS COMPACTAS (Absolutos y Tasas) --- 
+                    
+                    # Columna para Total Órdenes (Absoluto)
+                    with col_m_total_abs: 
+                        st.markdown('<div class="metric-compact-container-total">', unsafe_allow_html=True) 
+                        st.metric(label="Total Ordenes", value=f"{total_registros:,}") 
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Columna para Espacio (Tasa Total - no aplica)
                     with col_m_total_tasa: 
                         st.markdown('<div class="percentage-value-compact">', unsafe_allow_html=True) 
                         st.metric(label=" ", value=" ") 
                         st.markdown('</div>', unsafe_allow_html=True)
 
+                    # Columna para Instalaciones (Absoluto)
+                    with col_m_inst_abs: 
+                        st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
+                        st.metric(label="Instalaciones", value=f"{total_instalaciones:,}") 
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    # Columna para Instalaciones (Tasa)
                     with col_m_inst_tasa: 
                         st.markdown('<div class="percentage-value-compact">', unsafe_allow_html=True) 
                         st.metric(label="Tasa %", value=f"{porc_instalaciones:.1f}%") 
                         st.markdown('</div>', unsafe_allow_html=True)
 
+                    # Columna para Visitas Téc. (Absoluto)
+                    with col_m_vis_abs: 
+                        st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
+                        st.metric(label="Visitas Téc.", value=f"{total_visitas_tecnicas:,}") 
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    # Columna para Visitas Téc. (Tasa)
                     with col_m_vis_tasa: 
                         st.markdown('<div class="percentage-value-compact">', unsafe_allow_html=True) 
                         st.metric(label="Tasa %", value=f"{porc_visitas:.1f}%") 
                         st.markdown('</div>', unsafe_allow_html=True)
-                        
-                    with col_spacer_l2: # Spacers para ocupar el espacio
-                        st.markdown('<div class="percentage-value-compact">', unsafe_allow_html=True) 
-                        st.metric(label=" ", value=" ") 
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        
-                    with col_spacer_r2: # Spacers para ocupar el espacio
-                        st.markdown('<div class="percentage-value-compact">', unsafe_allow_html=True) 
-                        st.metric(label=" ", value=" ") 
-                        st.markdown('</div>', unsafe_allow_html=True)
-
                     
                     # APLICACIÓN FINAL DE FILTROS DE SEGMENTACIÓN 
                     df_final = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad) 
                     df_final = apply_filter(df_final, COL_FILTRO_TECNICO, filtro_tecnico) 
                     datos_filtrados = df_final
-
                 # --- FIN DEL PANEL DE CONTROL COMPACTO ---
 
                 st.markdown("---")
