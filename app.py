@@ -705,11 +705,11 @@ else:
                     
                     # Columnas por defecto (sin Ubicación 'O' ni Tipo de Orden 'G')
                     default_cols_raw = [
-                        col_fecha_finalizacion,
-                        col_tarea, 
-                        col_tecnico,
-                        col_cliente,
-                        col_contrato
+                        col_fecha_finalizacion, # 1. Fecha de Finalización
+                        col_tecnico,            # 2. Técnico
+                        col_tarea,              # 3. Tarea
+                        col_contrato,           # 4. Contrato
+                        col_cliente             # 5. Cliente
                     ]
 
                     all_cols = datos_vista.columns.tolist() 
