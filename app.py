@@ -510,27 +510,41 @@ else:
                     # El título del grupo de gráficos (Rendimiento por Técnico o Ubicación)
                     st.markdown(f"#### Rendimiento {title_prefix}")
                     
-                    # Gráfico 1: Instalaciones (APILADO - Se usa la nueva altura REDUCIDA de 100)
+                    # 💥 CAMBIO: El margen inferior ahora es siempre 60px para acomodar las etiquetas rotadas de ciudades y técnicos.
+                    bottom_margin = 60
+                    CHART_HEIGHT = 200 
+                    
+                    # 💥 CAMBIO: La configuración del eje X ahora rota las etiquetas siempre a -45 grados.
+                    xaxis_config = {
+                        'tickangle': -45, 
+                        'tickfont': {'size': 9 if not is_city_view else 10} 
+                    }
+
+                    # Gráfico 1: Instalaciones (APILADO)
                     with st.container(border=True):
                         st.markdown("##### Instalaciones")
-                        fig_inst = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=100) # ALTURA REDUCIDA
+                        # Usamos la nueva altura
+                        fig_inst = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=CHART_HEIGHT) 
                         fig_inst.update_layout(
                             xaxis_title=None, 
                             yaxis_title='Total', 
-                            margin=dict(t=20,b=10,l=10,r=10),
-                            xaxis={'tickangle': -45 if not is_city_view else 0}
+                            # Margen inferior corregido a 60px
+                            margin=dict(t=20,b=bottom_margin,l=10,r=10), 
+                            xaxis=xaxis_config # Aplicamos la nueva configuración rotada
                         )
                         st.plotly_chart(fig_inst, use_container_width=True)
 
-                    # Gráfico 2: Visitas (APILADO - Se usa la nueva altura REDUCIDA de 100)
+                    # Gráfico 2: Visitas (APILADO)
                     with st.container(border=True):
                         st.markdown("##### Visitas")
-                        fig_vis = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=100) # ALTURA REDUCIDA
+                        # Usamos la nueva altura
+                        fig_vis = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=CHART_HEIGHT) 
                         fig_vis.update_layout(
                             xaxis_title=None, 
                             yaxis_title='Total', 
-                            margin=dict(t=20,b=10,l=10,r=10),
-                            xaxis={'tickangle': -45 if not is_city_view else 0}
+                            # Margen inferior corregido a 60px
+                            margin=dict(t=20,b=bottom_margin,l=10,r=10), 
+                            xaxis=xaxis_config # Aplicamos la nueva configuración rotada
                         )
                         st.plotly_chart(fig_vis, use_container_width=True)
                         
@@ -783,7 +797,7 @@ else:
                                     xaxis_title=None, 
                                     yaxis_title='Tareas', 
                                     margin=dict(t=20, b=10, l=10, r=10), 
-                                    height=200, # ALTURA REDUCIDA (200)
+                                    height=200, # ALTURA AUMENTADA
                                     xaxis={'tickangle': -45}
                                 ) 
                                 fig.update_traces(textposition='outside') 
@@ -800,14 +814,14 @@ else:
                                 top_tecnicos.columns = ['Técnico', 'Total Tareas']
 
                                 fig_pie = px.pie(top_tecnicos, values='Total Tareas', names='Técnico', hole=.4, color_discrete_sequence=px.colors.qualitative.Pastel) 
-                                fig_pie.update_layout(showlegend=True, margin=dict(l=0, r=0, t=20, b=0), height=200) # ALTURA REDUCIDA (200)
+                                fig_pie.update_layout(showlegend=True, margin=dict(l=0, r=0, t=20, b=0), height=200) # ALTURA AUMENTADA
                                 st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False}) 
                             else: 
                                 st.info("Datos insuficientes para Top Técnico.")
                     
                     
                     # *************************************************************************************
-                    # *** SECCIÓN: RENDIMIENTO DINÁMICO (ALTURA REDUCIDA) ***
+                    # *** SECCIÓN: RENDIMIENTO DINÁMICO (ALTURA AUMENTADA Y FUENTE/ROTACIÓN AJUSTADA) ***
                     # *************************************************************************************
                     st.markdown("---") # Separador para la nueva sección
                     st.markdown("### 📈 Rendimiento Detallado de Órdenes")
