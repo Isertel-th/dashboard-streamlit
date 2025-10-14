@@ -170,10 +170,22 @@ COL_TIPO_VISITA = '_ES_VISITA_'
 # --- FUNCIONES DE LIMPIEZA PARA FILTROS --- 
 @st.cache_data 
 def clean_tecnico(tecnico): 
-    """Extrae el nombre del técnico después del '|'.""" 
-    if isinstance(tecnico, str) and '|' in tecnico: 
-        return tecnico.split('|', 1)[1].strip() 
-    return str(tecnico).strip()
+    """
+    Extrae el nombre del técnico después del '|' y elimina '(tecnico)' al final.
+    """ 
+    s = str(tecnico).strip()
+
+    # 1. Extraer lo que está después del '|'
+    if '|' in s: 
+        s = s.split('|', 1)[1].strip() 
+
+    # 2. Eliminar la cadena ' (tecnico)' al final (insensible a mayúsculas/minúsculas)
+    suffix = ' (tecnico)'
+    if s.lower().endswith(suffix):
+        # Eliminamos el sufijo del texto original (manteniendo el case si no era el sufijo)
+        s = s[:-len(suffix)]
+
+    return s.strip() # Devolver el resultado final limpio
 
 @st.cache_data 
 def clean_ciudad(ciudad): 
@@ -406,7 +418,7 @@ else:
                 'F': ['Finalizada'] * 100, 
                 'G': ['INSTALACION', 'VISITA TÉCNICA', 'REPOSICION', 'INSTALACION', 'VISITA TÉCNICA'] * 20, 
                 'O': ['Bogotá, 123', 'Bogotá, 456', 'Cali, 123', 'Cali, 456', 'Bogotá, 789', 'Medellín, 123', 'Medellín, 456', 'Medellín, 789', 'Cali, 789', 'Bogotá, 123'] * 10, 
-                'P': ['T|Juan Pérez', 'T|Juan Pérez', 'T|Pedro López', 'T|Pedro López', 'T|Ana Gómez', 'T|Ana Gómez', 'T|Juan Pérez', 'T|Juan Pérez', 'T|Pedro López', 'T|Ana Gómez'] * 10, 
+                'P': ['T|Juan Pérez (tecnico)', 'T|Juan Pérez (tecnico)', 'T|Pedro López (tecnico)', 'T|Pedro López', 'T|Ana Gómez (tecnico)', 'T|Ana Gómez', 'T|Juan Pérez (tecnico)', 'T|Juan Pérez', 'T|Pedro López (tecnico)', 'T|Ana Gómez (tecnico)'] * 10, 
                 'Q': ['C1']*100, 
                 'R': ['Cliente A']*100, 
                 'T': pd.to_datetime([f'2025-10-{d:02d}' for d in range(1, 11)] * 10) 
@@ -582,6 +594,7 @@ else:
                     
                     # PRE-PROCESAMIENTO PARA FILTROS DE SEGMENTACIÓN 
                     if COL_TECNICO_KEY in datos_filtrados.columns: 
+                        # 💥 APLICACIÓN DE LA NUEVA LÓGICA DE LIMPIEZA 💥
                         datos_filtrados[COL_FILTRO_TECNICO] = datos_filtrados[COL_TECNICO_KEY].astype(str).apply(clean_tecnico) 
                     if COL_CIUDAD_KEY in datos_filtrados.columns: 
                         datos_filtrados[COL_FILTRO_CIUDAD] = datos_filtrados[COL_CIUDAD_KEY].astype(str).apply(clean_ciudad)
@@ -692,24 +705,31 @@ else:
                     datos_filtrados_ordenados = datos_filtrados.sort_values(by=COL_TEMP_DATETIME, ascending=True).copy()
 
                     # Preparamos la vista de datos (renombramos) 
+                    # NOTA: Los datos de la columna 'P' (Técnico) ya están limpios en el paso de filtrado
                     datos_vista = datos_filtrados_ordenados.rename(columns=FINAL_RENAMING_MAP) 
                     columnas_finales = [col for col in FINAL_RENAMING_MAP.values() if col in datos_vista.columns] 
+                    
+                    # 💥 MUESTRA LOS DATOS DE TECNICO DEL CAMPO FILTRADO Y LIMPIO 💥
+                    # Mapeamos la columna 'Técnico' del dataframe filtrado y limpio al dataframe de la vista
+                    if COL_FILTRO_TECNICO in datos_filtrados_ordenados.columns and FINAL_RENAMING_MAP['P'] in datos_vista.columns:
+                         datos_vista[FINAL_RENAMING_MAP['P']] = datos_filtrados_ordenados[COL_FILTRO_TECNICO]
+                    
                     datos_vista = datos_vista[columnas_finales]
 
-                    # 2. Definición Final de Columnas por defecto (sin Ubicación)
+                    # 2. Definición Final de Columnas por defecto 
                     col_fecha_finalizacion = FINAL_RENAMING_MAP['T']
                     col_tarea = FINAL_RENAMING_MAP['A']
                     col_tecnico = FINAL_RENAMING_MAP['P']
                     col_cliente = FINAL_RENAMING_MAP['R']
                     col_contrato = FINAL_RENAMING_MAP['Q']
                     
-                    # Columnas por defecto (sin Ubicación 'O' ni Tipo de Orden 'G')
+                    # Columnas por defecto (ORDEN SOLICITADO: Fecha, Técnico, Tarea, Contrato, Cliente)
                     default_cols_raw = [
-                        col_fecha_finalizacion, # 1. Fecha de Finalización
-                        col_tecnico,            # 2. Técnico
-                        col_tarea,              # 3. Tarea
-                        col_contrato,           # 4. Contrato
-                        col_cliente             # 5. Cliente
+                        col_fecha_finalizacion,
+                        col_tecnico,
+                        col_tarea, 
+                        col_contrato,
+                        col_cliente
                     ]
 
                     all_cols = datos_vista.columns.tolist() 
