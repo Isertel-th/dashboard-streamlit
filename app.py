@@ -294,7 +294,7 @@ if not st.session_state.login:
         contrasena_input = st.text_input("Contraseña", type="password")
 
         if st.button("Iniciar sesión", use_container_width=True): 
-            user_row = usuarios_df[ 
+            user_row = usuarios_df[
                 (usuarios_df["Usuario"].str.lower() == usuario_input.strip().lower()) & 
                 (usuarios_df["Contraseña"] == contrasena_input.strip()) 
             ] 
@@ -539,9 +539,10 @@ else:
                 with st.container(border=True):
                     
                     # --- DECLARACIÓN ÚNICA DE COLUMNAS (1 Fila Horizontal) --- 
-                    # Orden: [Fecha Desde, Fecha Hasta, Ubicación, Técnico, Total Abs., Total %, Inst. Abs., Inst. %, Vis. Abs., Vis. %]
-                    col_desde, col_hasta, col_ciu, col_tec, col_m_total_abs, col_m_total_tasa, col_m_inst_abs, col_m_inst_tasa, col_m_vis_abs, col_m_vis_tasa = st.columns(
-                        [1.0, 1.0, 1.5, 1.5, 1.5, 0.5, 1.5, 1.0, 1.5, 1.0]
+                    # Orden: [Fecha Desde, Fecha Hasta, Ubicación, Técnico, Total Abs., Inst. Abs., Inst. %, Vis. Abs., Vis. %]
+                    # col_m_total_tasa (la 6ta columna de 0.5) ha sido eliminada.
+                    col_desde, col_hasta, col_ciu, col_tec, col_m_total_abs, col_m_inst_abs, col_m_inst_tasa, col_m_vis_abs, col_m_vis_tasa = st.columns(
+                        [1.0, 1.0, 1.3, 1.3, 1.2, 1.2, 1.0, 1.2, 1.0]
                     )
 
                     # Lógica de Fechas (Filtrado) - Se mantiene en las primeras 2 columnas
@@ -584,23 +585,21 @@ else:
                     
                     # --- RENDERIZADO DE FILTROS DE SEGMENTACIÓN (Ubicación y Técnico) ---
                     with col_ciu:
-                        # CORRECCIÓN AQUÍ: Se añade el placeholder
                         filtro_ciudad = st.multiselect(
                             f"**{COL_CIUDAD_DESCRIPTIVA}**:", 
                             options=opciones_ciudad, 
                             default=filtro_ciudad_actual, 
                             key='multiselect_ubicacion',
-                            placeholder="Ciudad" # <-- Placeholder añadido
+                            placeholder="Ciudad"
                         )
 
                     with col_tec:
-                        # CORRECCIÓN AQUÍ: Se añade el placeholder
                         filtro_tecnico = st.multiselect(
                             f"**{COL_TECNICO_DESCRIPTIVA}**:", 
                             options=opciones_tecnico, 
                             default=filtro_tecnico_actual, 
                             key='multiselect_tecnico',
-                            placeholder="Código" # <-- Placeholder añadido
+                            placeholder="Código"
                         )
                         
                     # APLICACIÓN FINAL DE FILTROS DE SEGMENTACIÓN 
@@ -630,11 +629,7 @@ else:
                         st.metric(label="Total Ordenes", value=f"{total_registros:,}") 
                         st.markdown('</div>', unsafe_allow_html=True)
                     
-                    # Columna para Espacio (Tasa Total - no aplica)
-                    with col_m_total_tasa: 
-                        st.markdown('<div class="percentage-value-compact">', unsafe_allow_html=True) 
-                        st.metric(label=" ", value=" ") 
-                        st.markdown('</div>', unsafe_allow_html=True)
+                    # **COLUMNA ELIMINADA: col_m_total_tasa ya no existe.**
 
                     # Columna para Instalaciones (Absoluto)
                     with col_m_inst_abs: 
