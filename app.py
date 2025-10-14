@@ -673,15 +673,37 @@ else:
                 with col_raw:
                     st.markdown(f"#### 📑 Datos RAW ({len(datos_filtrados)} registros)")
 
-                    # Preparamos la vista de datos 
-                    datos_vista = datos_filtrados.rename(columns=FINAL_RENAMING_MAP) 
+                    # 1. ORDENAR LOS DATOS POR FECHA (MÁS ANTIGUA A MÁS RECIENTE)
+                    # El campo COL_TEMP_DATETIME es el campo de datetime ya filtrado.
+                    datos_filtrados_ordenados = datos_filtrados.sort_values(by=COL_TEMP_DATETIME, ascending=True).copy()
+
+                    # Preparamos la vista de datos (renombramos) 
+                    datos_vista = datos_filtrados_ordenados.rename(columns=FINAL_RENAMING_MAP) 
                     columnas_finales = [col for col in FINAL_RENAMING_MAP.values() if col in datos_vista.columns] 
                     datos_vista = datos_vista[columnas_finales]
 
-                    # 1. Selector de Columnas 
-                    all_cols = datos_vista.columns.tolist() 
-                    default_cols = [FINAL_RENAMING_MAP['O'], FINAL_RENAMING_MAP['T'], FINAL_RENAMING_MAP['P'], FINAL_RENAMING_MAP['G']]
+                    # 2. Definición Final de Columnas por defecto (sin Ubicación)
+                    col_fecha_finalizacion = FINAL_RENAMING_MAP['T']
+                    col_tarea = FINAL_RENAMING_MAP['A']
+                    col_tecnico = FINAL_RENAMING_MAP['P']
+                    col_cliente = FINAL_RENAMING_MAP['R']
+                    col_contrato = FINAL_RENAMING_MAP['Q']
+                    
+                    # Columnas por defecto (sin Ubicación 'O' ni Tipo de Orden 'G')
+                    default_cols_raw = [
+                        col_fecha_finalizacion,
+                        col_tarea, 
+                        col_tecnico,
+                        col_cliente,
+                        col_contrato
+                    ]
 
+                    all_cols = datos_vista.columns.tolist() 
+                    
+                    # Asegurarse de que las columnas por defecto existan en el DataFrame antes de usarlas
+                    default_cols = [c for c in default_cols_raw if c in all_cols]
+
+                    # 3. Selector de Columnas 
                     cols_to_show = st.multiselect( 
                         "**Columnas a mostrar**:", 
                         options=all_cols, 
@@ -691,7 +713,7 @@ else:
 
                     df_to_display = datos_vista[cols_to_show] if cols_to_show else datos_vista
 
-                    # 2. Implementación de overflow horizontal 
+                    # 4. Implementación de overflow horizontal 
                     st.markdown('<div style="overflow-x: auto;">', unsafe_allow_html=True) 
                     st.data_editor( 
                         df_to_display, 
