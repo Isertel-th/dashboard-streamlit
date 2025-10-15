@@ -361,11 +361,33 @@ if 'rol' not in st.session_state:
 if 'usuario' not in st.session_state: 
     st.session_state.usuario = None
 
-# --- LOGIN / INTERFAZ PRINCIPAL (sin cambios en login) --- 
+# --- LOGIN / INTERFAZ PRINCIPAL (con imagen) --- 
 if not st.session_state.login: 
-    st.title("📊 Estadístico Isertel - Login") 
+    
+    # 💥 MODIFICACIÓN APLICADA: Cabecera con Imagen y Título 💥
+    # Definir columnas para la cabecera de Login (Imagen, Título, Espaciador)
+    # Se usan las mismas proporciones relativas para imagen y título que en el dashboard: [0.8, 3.8, ...]
+    col_img_login, col_title_login, col_spacer_login = st.columns([0.8, 3.8, 6.2]) 
+
+    # Columna para la Imagen de Login
+    with col_img_login:
+        IMAGE_PATH = "logge.png" 
+        if os.path.exists(IMAGE_PATH):
+            # Carga la imagen con el mismo ancho (100px)
+            st.image(IMAGE_PATH, width=100) 
+        else:
+            # Espacio vacío si la imagen no se encuentra, para mantener la alineación
+            st.markdown("&nbsp;") 
+
+    # Columna para el Título de Login
+    with col_title_login:
+        # Usar el estilo para asegurar la alineación vertical con la imagen
+        st.markdown("<h2 style='margin-top:0.5rem; margin-left: -0.5rem;'>📊 Estadístico Isertel</h2>", unsafe_allow_html=True) 
+
+    # Subtítulo de bienvenida (debajo de la cabecera)
     st.subheader("Inicia sesión para acceder")
 
+    # Definir las columnas para el formulario de login (centrado)
     col_login_spacer_l, col_login_box, col_login_spacer_r = st.columns([1, 2, 1])
 
     with col_login_box: 
