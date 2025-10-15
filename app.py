@@ -272,6 +272,73 @@ def prepare_city_comparison_data(df):
 
     return df_grouped.sort_values(by=COL_FILTRO_CIUDAD)
 
+# Función auxiliar para renderizar los gráficos de comparación (APILADOS VERTICALMENTE)
+def render_comparison_charts_vertical(df_comparacion, x_col, title_prefix, is_city_view=False):
+    # El título del grupo de gráficos (Rendimiento por Técnico o Ubicación)
+    st.markdown(f"#### Rendimiento {title_prefix}")
+    
+    # El margen inferior ahora es siempre 60px para acomodar las etiquetas rotadas de ciudades y técnicos.
+    bottom_margin = 60
+    CHART_HEIGHT = 200 
+    
+    # La configuración del eje X ahora rota las etiquetas siempre a -45 grados.
+    xaxis_config = {
+        'tickangle': -45, 
+        'tickfont': {'size': 9 if not is_city_view else 10} 
+    }
+
+    # CONFIGURACIÓN DE LAS LÍNEAS DE REJILLA VERTICALES DISCONTINUAS (PUNTEADAS) 
+    grid_config = {
+        'showgrid': True,
+        'gridcolor': '#cccccc',  # Un color gris claro para la rejilla
+        'griddash': 'dot'       # Tipo de línea: 'dot' (punteada)
+    }
+
+    # Gráfico 1: Instalaciones (APILADO)
+    with st.container(border=True):
+        st.markdown("##### Instalaciones")
+        # Usamos la nueva altura
+        fig_inst = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=CHART_HEIGHT) 
+        
+        # 🎯 CORRECCIÓN 1: Mostrar el texto permanentemente encima del punto
+        fig_inst.update_traces(textposition='top center') 
+        
+        fig_inst.update_layout(
+            xaxis_title=None, 
+            yaxis_title='Total', 
+            # Margen inferior corregido a 60px
+            margin=dict(t=20,b=bottom_margin,l=10,r=10), 
+            xaxis=xaxis_config # Aplicamos la configuración rotada
+        )
+        # 🎯 CORRECCIÓN 2: Aplicamos la configuración de rejilla vertical
+        fig_inst.update_xaxes(**grid_config)
+        # 🎯 CORRECCIÓN 3: Desactivamos las líneas horizontales (rejilla Y)
+        fig_inst.update_yaxes(showgrid=False) 
+        st.plotly_chart(fig_inst, use_container_width=True)
+
+    # Gráfico 2: Visitas (APILADO)
+    with st.container(border=True):
+        st.markdown("##### Visitas")
+        # Usamos la nueva altura
+        fig_vis = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=CHART_HEIGHT) 
+        
+        # 🎯 CORRECCIÓN 1: Mostrar el texto permanentemente encima del punto
+        fig_vis.update_traces(textposition='top center')
+        
+        fig_vis.update_layout(
+            xaxis_title=None, 
+            yaxis_title='Total', 
+            # Margen inferior corregido a 60px
+            margin=dict(t=20,b=bottom_margin,l=10,r=10), 
+            xaxis=xaxis_config # Aplicamos la configuración rotada
+        )
+        # 🎯 CORRECCIÓN 2: Aplicamos la configuración de rejilla vertical
+        fig_vis.update_xaxes(**grid_config)
+        # 🎯 CORRECCIÓN 3: Desactivamos las líneas horizontales (rejilla Y)
+        fig_vis.update_yaxes(showgrid=False)
+        st.plotly_chart(fig_vis, use_container_width=True)
+
+
 # --- LECTURA DE USUARIOS (sin cambios) ---
 try: 
     usuarios_df = pd.read_excel(USUARIOS_EXCEL) 
@@ -294,7 +361,7 @@ if 'rol' not in st.session_state:
 if 'usuario' not in st.session_state: 
     st.session_state.usuario = None
 
-# --- LOGIN / INTERFAZ PRINCIPAL (sin cambios) --- 
+# --- LOGIN / INTERFAZ PRINCIPAL (sin cambios en login) --- 
 if not st.session_state.login: 
     st.title("📊 Estadístico Isertel - Login") 
     st.subheader("Inicia sesión para acceder")
@@ -319,12 +386,25 @@ if not st.session_state.login:
                 st.error("Usuario o contraseña incorrectos")
 
 else: 
-    # --- Interfaz Principal (CABECERA ALINEADA Y BAJADA) (sin cambios) --- 
+    # --- Interfaz Principal (CABECERA ALINEADA Y BAJADA) --- 
     
-    col_title, col_spacer, col_welcome, col_logout = st.columns([4, 4, 2, 1]) 
+    # 💥 MODIFICACIÓN: Se añade una columna para la imagen ('logge.png').
+    # Orden: [Imagen, Título, Espaciador, Bienvenida, Logout]
+    col_img, col_title, col_spacer, col_welcome, col_logout = st.columns([0.8, 3.8, 3, 2, 1]) 
+    
+    # Columna para la Imagen
+    with col_img:
+        IMAGE_PATH = "logge.png" # Usando el nombre de archivo solicitado
+        if os.path.exists(IMAGE_PATH):
+            # Carga la imagen y la ajusta a un tamaño pequeño
+            st.image(IMAGE_PATH, width=100) # Ajusta el ancho según necesites
+        else:
+            # Si no se encuentra la imagen, deja un espacio o un marcador
+            st.markdown("&nbsp;") # Espacio vacío para mantener la alineación
 
     with col_title:
-        st.markdown("## 📊 Estadístico Isertel") 
+        # Usamos estilo para asegurar la alineación vertical con la imagen
+        st.markdown("<h2 style='margin-top:0.5rem; margin-left: -0.5rem;'>📊 Estadístico Isertel</h2>", unsafe_allow_html=True) 
 
     with col_welcome: 
         st.success(f"Bienvenido {st.session_state.usuario} ({st.session_state.rol})", icon=None) 
@@ -518,18 +598,26 @@ else:
                     return df[df[col_key_filtro].astype(str).isin(selected_options)]
                     
                 # Función auxiliar para renderizar los gráficos de comparación (APILADOS VERTICALMENTE)
+                # 💥 FUNCIÓN CORREGIDA con texto permanente y rejilla vertical 💥
                 def render_comparison_charts_vertical(df_comparacion, x_col, title_prefix, is_city_view=False):
                     # El título del grupo de gráficos (Rendimiento por Técnico o Ubicación)
                     st.markdown(f"#### Rendimiento {title_prefix}")
                     
-                    # 💥 CAMBIO: El margen inferior ahora es siempre 60px para acomodar las etiquetas rotadas de ciudades y técnicos.
+                    # El margen inferior ahora es siempre 60px para acomodar las etiquetas rotadas de ciudades y técnicos.
                     bottom_margin = 60
                     CHART_HEIGHT = 200 
                     
-                    # 💥 CAMBIO: La configuración del eje X ahora rota las etiquetas siempre a -45 grados.
+                    # La configuración del eje X ahora rota las etiquetas siempre a -45 grados.
                     xaxis_config = {
                         'tickangle': -45, 
                         'tickfont': {'size': 9 if not is_city_view else 10} 
+                    }
+
+                    # CONFIGURACIÓN DE LAS LÍNEAS DE REJILLA VERTICALES DISCONTINUAS (PUNTEADAS) 
+                    grid_config = {
+                        'showgrid': True,
+                        'gridcolor': '#cccccc',  # Un color gris claro para la rejilla
+                        'griddash': 'dot'       # Tipo de línea: 'dot' (punteada)
                     }
 
                     # Gráfico 1: Instalaciones (APILADO)
@@ -537,13 +625,21 @@ else:
                         st.markdown("##### Instalaciones")
                         # Usamos la nueva altura
                         fig_inst = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=CHART_HEIGHT) 
+                        
+                        # Mostrar el texto permanentemente encima del punto
+                        fig_inst.update_traces(textposition='top center') 
+                        
                         fig_inst.update_layout(
                             xaxis_title=None, 
                             yaxis_title='Total', 
                             # Margen inferior corregido a 60px
                             margin=dict(t=20,b=bottom_margin,l=10,r=10), 
-                            xaxis=xaxis_config # Aplicamos la nueva configuración rotada
+                            xaxis=xaxis_config # Aplicamos la configuración rotada
                         )
+                        # Aplicamos la configuración de rejilla vertical
+                        fig_inst.update_xaxes(**grid_config)
+                        # Desactivamos las líneas horizontales (rejilla Y)
+                        fig_inst.update_yaxes(showgrid=False) 
                         st.plotly_chart(fig_inst, use_container_width=True)
 
                     # Gráfico 2: Visitas (APILADO)
@@ -551,13 +647,21 @@ else:
                         st.markdown("##### Visitas")
                         # Usamos la nueva altura
                         fig_vis = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=CHART_HEIGHT) 
+                        
+                        # Mostrar el texto permanentemente encima del punto
+                        fig_vis.update_traces(textposition='top center')
+                        
                         fig_vis.update_layout(
                             xaxis_title=None, 
                             yaxis_title='Total', 
                             # Margen inferior corregido a 60px
                             margin=dict(t=20,b=bottom_margin,l=10,r=10), 
-                            xaxis=xaxis_config # Aplicamos la nueva configuración rotada
+                            xaxis=xaxis_config # Aplicamos la configuración rotada
                         )
+                        # Aplicamos la configuración de rejilla vertical
+                        fig_vis.update_xaxes(**grid_config)
+                        # Desactivamos las líneas horizontales (rejilla Y)
+                        fig_vis.update_yaxes(showgrid=False)
                         st.plotly_chart(fig_vis, use_container_width=True)
                         
                 
@@ -633,7 +737,7 @@ else:
                     # Se aplican los filtros de multiselect al DataFrame ya filtrado por fecha (df_all)
                     df_final = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad) 
                     df_final = apply_filter(df_final, COL_FILTRO_TECNICO, filtro_tecnico) 
-                    datos_filtrados = df_final # 💥 CORRECCIÓN: Actualizamos datos_filtrados para que refleje todos los filtros 💥
+                    datos_filtrados = df_final # CORRECCIÓN: Actualizamos datos_filtrados para que refleje todos los filtros
 
                     # --- CÁLCULO DE MÉTRICAS CLAVE (AHORA SOBRE EL DATAFRAME FILTRADO) --- 
                     total_registros = len(datos_filtrados) 
@@ -656,8 +760,6 @@ else:
                         st.metric(label="Total Ordenes", value=f"{total_registros:,}") 
                         st.markdown('</div>', unsafe_allow_html=True)
                     
-                    # **COLUMNA ELIMINADA: col_m_total_tasa ya no existe.**
-
                     # Columna para Instalaciones (Absoluto)
                     with col_m_inst_abs: 
                         st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
@@ -690,8 +792,6 @@ else:
                 # --- LAYOUT PRINCIPAL: DOS COLUMNAS (RAW vs. GRÁFICOS) --- 
                 # ------------------------------------------------------------------------------------- 
                 # Dividimos el espacio en dos columnas: 
-                # Columna 1 (izquierda): Tabla RAW (ancho 5) 
-                # Columna 2 (derecha): Todos los gráficos apilados verticalmente (ancho 15)
                 col_raw, col_graphs_group = st.columns([5, 15]) 
 
                 # ------------------------------------------------------------------------------------- 
@@ -701,16 +801,13 @@ else:
                     st.markdown(f"#### 📑 Datos RAW ({len(datos_filtrados)} registros)")
 
                     # 1. ORDENAR LOS DATOS POR FECHA (MÁS ANTIGUA A MÁS RECIENTE)
-                    # El campo COL_TEMP_DATETIME es el campo de datetime ya filtrado.
                     datos_filtrados_ordenados = datos_filtrados.sort_values(by=COL_TEMP_DATETIME, ascending=True).copy()
 
                     # Preparamos la vista de datos (renombramos) 
-                    # NOTA: Los datos de la columna 'P' (Técnico) ya están limpios en el paso de filtrado
                     datos_vista = datos_filtrados_ordenados.rename(columns=FINAL_RENAMING_MAP) 
                     columnas_finales = [col for col in FINAL_RENAMING_MAP.values() if col in datos_vista.columns] 
                     
-                    # 💥 MUESTRA LOS DATOS DE TECNICO DEL CAMPO FILTRADO Y LIMPIO 💥
-                    # Mapeamos la columna 'Técnico' del dataframe filtrado y limpio al dataframe de la vista
+                    # MUESTRA LOS DATOS DE TECNICO DEL CAMPO FILTRADO Y LIMPIO
                     if COL_FILTRO_TECNICO in datos_filtrados_ordenados.columns and FINAL_RENAMING_MAP['P'] in datos_vista.columns:
                          datos_vista[FINAL_RENAMING_MAP['P']] = datos_filtrados_ordenados[COL_FILTRO_TECNICO]
                     
