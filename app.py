@@ -69,17 +69,6 @@ def set_page_config_and_style():
         color: #0D47A1; 
     }
 
-    /* Estilo para los valores de porcentaje */ 
-    .percentage-value-compact div[data-testid="stMetricValue"] { 
-        font-size: 1.8rem; 
-        font-weight: bold; 
-        color: #1E88E5; 
-    } 
-    .percentage-value-compact div[data-testid="stMetricLabel"] { 
-        font-size: 1rem; 
-        color: #1E88E5; 
-    }
-
     /* Oculta los deltas estándar */ 
     div[data-testid="stMetricDelta"] { 
         visibility: hidden; 
@@ -128,46 +117,64 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # 1. DEFINICIÓN FINAL DEL MAPEO (Excel Header -> Letra Corta) 
 MAPEO_COLUMNAS = { 
-    'TAREA': 'A', 
-    'ORDEN': 'B', 
-    'ESTADO DE LA TAREA': 'F', 
-    'TIPO DE ORDEN DE TRABAJO': 'G', 
-    'UBICACIÓN': 'O', 
-    'TÉCNICO': 'P', 
-    'CONTRATO': 'Q', 
-    'CLIENTE': 'R', 
-    'FECHA DE FINALIZACIÓN': 'T' 
+    'FECHA': 'A', 
+    'UBICACIÓN': 'B', 
+    'TÉCNICO': 'C', 
+    'CONTRATO': 'D', 
+    'CLIENTE': 'E', 
+    'TECNOLOGÍA': 'F',
+    'TAREA': 'G', 
+    'ESTADO TAREA': 'H', # <--- CORRECCIÓN 1: 'ESTADO DE LA TAREA' -> 'ESTADO TAREA'
+    'TIPO DE ORDEN': 'I' 
 }
+# 💥 FIN NUEVO MAPEO 💥
 
 COLUMNAS_SELECCIONADAS = list(MAPEO_COLUMNAS.values()) 
 ENCABEZADOS_ESPERADOS = list(MAPEO_COLUMNAS.keys())
 
 # 2. DEFINICIÓN DEL MAPEO INVERSO (Letra Corta -> Nombre Descriptivo) 
 FINAL_RENAMING_MAP = {v: k for k, v in MAPEO_COLUMNAS.items()} 
-COL_FECHA_KEY = 'T' 
+
+# 💥 CORRECCIÓN DE CLAVES DE COLUMNA A LAS NUEVAS LETRAS 💥
+COL_FECHA_KEY = 'A' 
+COL_TECNICO_KEY = 'C' 
+COL_CIUDAD_KEY = 'B' 
+COL_TIPO_ORDEN_KEY = 'I'
+COL_ESTADO_KEY = 'H' 
+COL_CONTRATO_KEY = 'D'
+COL_CLIENTE_KEY = 'E'
+COL_TAREA_KEY = 'G'
+COL_TECNOLOGIA_KEY = 'F' # <<-- NUEVA CLAVE
+# 💥 FIN CORRECCIÓN 💥
+
 COL_FECHA_DESCRIPTIVA = FINAL_RENAMING_MAP[COL_FECHA_KEY] 
 COL_TEMP_DATETIME = '_DATETIME_' + COL_FECHA_KEY 
 COL_FINAL_SEMANA_GRAFICO = 'SEMANA_DE_GRÁFICO'
 
 # Columnas clave para los filtros 
-COL_TECNICO_KEY = 'P' 
-COL_CIUDAD_KEY = 'O' 
-COL_TIPO_ORDEN_KEY = 'G'
-
 COL_TECNICO_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TECNICO_KEY, 'TÉCNICO') 
 COL_CIUDAD_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_CIUDAD_KEY, 'UBICACIÓN') 
-COL_TIPO_ORDEN_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_ORDEN_KEY, 'TIPO DE ORDEN DE TRABAJO')
+COL_TIPO_ORDEN_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_ORDEN_KEY, 'TIPO DE ORDEN')
+COL_ESTADO_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_ESTADO_KEY, 'ESTADO TAREA') # <--- MANTENEMOS ESTADO TAREA
+COL_TECNOLOGIA_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TECNOLOGIA_KEY, 'TECNOLOGÍA') # <<-- NUEVA DESCRIPTIVA
 
 # --- Nuevas columnas temporales para el filtrado limpio --- 
 COL_FILTRO_TECNICO = '_Filtro_Tecnico_' 
 COL_FILTRO_CIUDAD = '_Filtro_Ubicacion_'
+COL_FILTRO_ESTADO = '_Filtro_Estado_' 
+COL_FILTRO_TIPO_ORDEN = '_Filtro_TipoOrden_' # <<-- NUEVA
+COL_FILTRO_TECNOLOGIA = '_Filtro_Tecnologia_' # <<-- NUEVA
 
 # --- Nuevas columnas para los Gráficos de Comparación --- 
 COL_SEGM_TIEMPO = '_SEGM_AÑO_MES_' 
 COL_TIPO_INST = '_ES_INSTALACION_' 
 COL_TIPO_VISITA = '_ES_VISITA_'
+COL_TIPO_MIGRACION = '_ES_MIGRACION_'
+COL_TIPO_MANUAL = '_ES_TAREA_MANUAL_'
+COL_TIPO_CAMBIO_DIR = '_ES_CAMBIO_DIRECCION_'
 
-# --- FUNCIONES DE LIMPIEZA PARA FILTROS --- 
+
+# --- FUNCIONES DE LIMPIEZA PARA FILTROS (sin cambios) --- 
 @st.cache_data 
 def clean_tecnico(tecnico): 
     """
@@ -194,7 +201,7 @@ def clean_ciudad(ciudad):
         return ciudad.split(',', 1)[0].strip() 
     return str(ciudad).strip()
 
-# --- FUNCIÓN DE SEGMENTACIÓN FIJA SOLICITADA (AJUSTADA A 5 DÍAS) --- 
+# --- FUNCIÓN DE SEGMENTACIÓN FIJA SOLICITADA (AJUSTADA A 5 DÍAS) (sin cambios) --- 
 @st.cache_data 
 def calculate_fixed_week(day): 
     """ Calcula el número de segmento (1-7) basado en el día del mes, usando 5 días por segmento (1-5, 6-10, 11-15, 16-20, 21-25, 26-30, 31). """ 
@@ -213,7 +220,7 @@ def calculate_fixed_week(day):
     else: # 31 
         return 7
 
-# --- FUNCIONES DE COMPARACIÓN (Reposiciones eliminadas) --- 
+# --- FUNCIONES DE COMPARACIÓN --- 
 @st.cache_data 
 def prepare_comparison_data(df): 
     if df.empty: 
@@ -224,10 +231,21 @@ def prepare_comparison_data(df):
     if COL_TIPO_ORDEN_KEY in df_temp.columns: 
         tipo_orden = df_temp[COL_TIPO_ORDEN_KEY].astype(str)
         df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
-        df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TÉCNICA', case=False, na=False).astype(int)
+        df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TECNICA', case=False, na=False).astype(int) # <--- CORRECCIÓN 2 APLICADA
+        
+        # --- CORRECCIÓN DE DETECCIÓN DE TILDES CON REGEX ---
+        # Match 'MIGRACION' o 'MIGRACIÓN' (case-insensitive)
+        df_temp[COL_TIPO_MIGRACION] = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
+        # Match 'CAMBIO DE DIRECCION' o 'CAMBIO DE DIRECCIÓN' (case-insensitive)
+        df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        # --- FIN CORRECCIÓN ---
     else: 
         df_temp[COL_TIPO_INST] = 0 
         df_temp[COL_TIPO_VISITA] = 0
+        df_temp[COL_TIPO_MIGRACION] = 0
+        df_temp[COL_TIPO_MANUAL] = 0
+        df_temp[COL_TIPO_CAMBIO_DIR] = 0
 
     if COL_FILTRO_TECNICO not in df_temp.columns or COL_FILTRO_CIUDAD not in df_temp.columns: 
         return pd.DataFrame()
@@ -236,10 +254,18 @@ def prepare_comparison_data(df):
     df_grouped = df_temp.groupby([COL_FILTRO_CIUDAD, COL_FILTRO_TECNICO]).agg( 
         Total_Instalaciones=(COL_TIPO_INST, 'sum'), 
         Total_Visitas=(COL_TIPO_VISITA, 'sum'),
+        # Agregamos las nuevas métricas 
+        Total_Migracion=(COL_TIPO_MIGRACION, 'sum'),
+        Total_TareaManual=(COL_TIPO_MANUAL, 'sum'),
+        Total_CambioDireccion=(COL_TIPO_CAMBIO_DIR, 'sum'),
     ).reset_index()
 
     df_grouped['Total_Instalaciones'] = df_grouped['Total_Instalaciones'].astype(int) 
     df_grouped['Total_Visitas'] = df_grouped['Total_Visitas'].astype(int)
+    # Convertimos a int 
+    df_grouped['Total_Migracion'] = df_grouped['Total_Migracion'].astype(int)
+    df_grouped['Total_TareaManual'] = df_grouped['Total_TareaManual'].astype(int)
+    df_grouped['Total_CambioDireccion'] = df_grouped['Total_CambioDireccion'].astype(int)
 
     return df_grouped.sort_values(by=COL_FILTRO_TECNICO)
 
@@ -253,10 +279,21 @@ def prepare_city_comparison_data(df):
     if COL_TIPO_ORDEN_KEY in df_temp.columns: 
         tipo_orden = df_temp[COL_TIPO_ORDEN_KEY].astype(str)
         df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
-        df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TÉCNICA', case=False, na=False).astype(int)
+        df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TECNICA', case=False, na=False).astype(int) # <--- CORRECCIÓN 2 APLICADA
+        
+        # --- CORRECCIÓN DE DETECCIÓN DE TILDES CON REGEX ---
+        # Match 'MIGRACION' o 'MIGRACIÓN' (case-insensitive)
+        df_temp[COL_TIPO_MIGRACION] = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
+        # Match 'CAMBIO DE DIRECCION' o 'CAMBIO DE DIRECCIÓN' (case-insensitive)
+        df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        # --- FIN CORRECCIÓN ---
     else: 
         df_temp[COL_TIPO_INST] = 0 
         df_temp[COL_TIPO_VISITA] = 0
+        df_temp[COL_TIPO_MIGRACION] = 0
+        df_temp[COL_TIPO_MANUAL] = 0
+        df_temp[COL_TIPO_CAMBIO_DIR] = 0
 
     if COL_FILTRO_CIUDAD not in df_temp.columns: 
         return pd.DataFrame()
@@ -265,15 +302,33 @@ def prepare_city_comparison_data(df):
     df_grouped = df_temp.groupby([COL_FILTRO_CIUDAD]).agg( 
         Total_Instalaciones=(COL_TIPO_INST, 'sum'), 
         Total_Visitas=(COL_TIPO_VISITA, 'sum'),
+        # Agregamos las nuevas métricas 
+        Total_Migracion=(COL_TIPO_MIGRACION, 'sum'),
+        Total_TareaManual=(COL_TIPO_MANUAL, 'sum'),
+        Total_CambioDireccion=(COL_TIPO_CAMBIO_DIR, 'sum'),
     ).reset_index()
 
     df_grouped['Total_Instalaciones'] = df_grouped['Total_Instalaciones'].astype(int) 
     df_grouped['Total_Visitas'] = df_grouped['Total_Visitas'].astype(int)
+    # Convertimos a int 
+    df_grouped['Total_Migracion'] = df_grouped['Total_Migracion'].astype(int)
+    df_grouped['Total_TareaManual'] = df_grouped['Total_TareaManual'].astype(int)
+    df_grouped['Total_CambioDireccion'] = df_grouped['Total_CambioDireccion'].astype(int)
 
     return df_grouped.sort_values(by=COL_FILTRO_CIUDAD)
 
-# Función auxiliar para renderizar los gráficos de comparación (APILADOS VERTICALMENTE)
+# Función auxiliar para renderizar los gráficos de comparación (APILADOS VERTICALMENTE) (sin cambios)
 def render_comparison_charts_vertical(df_comparacion, x_col, title_prefix, is_city_view=False):
+    # Definición de los gráficos a renderizar
+    chart_configs = [
+        {'col_name': 'Total_Instalaciones', 'title': 'Instalaciones', 'color': '#4CAF50'},
+        {'col_name': 'Total_Visitas', 'title': 'Visitas', 'color': '#FF9800'},
+        # Nuevos gráficos
+        {'col_name': 'Total_Migracion', 'title': 'Migración', 'color': '#2196F3'},
+        {'col_name': 'Total_TareaManual', 'title': 'Tarea Manual', 'color': '#9C27B0'},
+        {'col_name': 'Total_CambioDireccion', 'title': 'Cambio de Dirección', 'color': '#F44336'}
+    ]
+
     # El título del grupo de gráficos (Rendimiento por Técnico o Ubicación)
     st.markdown(f"#### Rendimiento {title_prefix}")
     
@@ -287,56 +342,44 @@ def render_comparison_charts_vertical(df_comparacion, x_col, title_prefix, is_ci
         'tickfont': {'size': 9 if not is_city_view else 10} 
     }
 
-    # CONFIGURACIÓN DE LAS LÍNEAS DE REJILLA VERTICALES DISCONTINUAS (PUNTEADAS) 
+    # CONFIGURACIÓN DE LAS LÍNEAS DE REJIDA VERTICALES DISCONTINUAS (PUNTEADAS) 
     grid_config = {
         'showgrid': True,
         'gridcolor': '#cccccc',  # Un color gris claro para la rejilla
         'griddash': 'dot'       # Tipo de línea: 'dot' (punteada)
     }
 
-    # Gráfico 1: Instalaciones (APILADO)
-    with st.container(border=True):
-        st.markdown("##### Instalaciones")
-        # Usamos la nueva altura
-        fig_inst = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=CHART_HEIGHT) 
-        
-        # 🎯 CORRECCIÓN 1: Mostrar el texto permanentemente encima del punto
-        fig_inst.update_traces(textposition='top center') 
-        
-        fig_inst.update_layout(
-            xaxis_title=None, 
-            yaxis_title='Total', 
-            # Margen inferior corregido a 60px
-            margin=dict(t=20,b=bottom_margin,l=10,r=10), 
-            xaxis=xaxis_config # Aplicamos la configuración rotada
-        )
-        # 🎯 CORRECCIÓN 2: Aplicamos la configuración de rejilla vertical
-        fig_inst.update_xaxes(**grid_config)
-        # 🎯 CORRECCIÓN 3: Desactivamos las líneas horizontales (rejilla Y)
-        fig_inst.update_yaxes(showgrid=False) 
-        st.plotly_chart(fig_inst, use_container_width=True)
-
-    # Gráfico 2: Visitas (APILADO)
-    with st.container(border=True):
-        st.markdown("##### Visitas")
-        # Usamos la nueva altura
-        fig_vis = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=CHART_HEIGHT) 
-        
-        # 🎯 CORRECCIÓN 1: Mostrar el texto permanentemente encima del punto
-        fig_vis.update_traces(textposition='top center')
-        
-        fig_vis.update_layout(
-            xaxis_title=None, 
-            yaxis_title='Total', 
-            # Margen inferior corregido a 60px
-            margin=dict(t=20,b=bottom_margin,l=10,r=10), 
-            xaxis=xaxis_config # Aplicamos la configuración rotada
-        )
-        # 🎯 CORRECCIÓN 2: Aplicamos la configuración de rejilla vertical
-        fig_vis.update_xaxes(**grid_config)
-        # 🎯 CORRECCIÓN 3: Desactivamos las líneas horizontales (rejilla Y)
-        fig_vis.update_yaxes(showgrid=False)
-        st.plotly_chart(fig_vis, use_container_width=True)
+    # Iteramos sobre la nueva configuración de gráficos
+    for config in chart_configs:
+        with st.container(border=True):
+            st.markdown(f"##### {config['title']}")
+            
+            # Usamos la nueva altura
+            fig = px.line(
+                df_comparacion, 
+                x=x_col, 
+                y=config['col_name'], 
+                markers=True, 
+                text=config['col_name'], 
+                height=CHART_HEIGHT,
+                color_discrete_sequence=[config['color']]
+            ) 
+            
+            # Mostrar el texto permanentemente encima del punto
+            fig.update_traces(textposition='top center') 
+            
+            fig.update_layout(
+                xaxis_title=None, 
+                yaxis_title='Total', 
+                # Margen inferior corregido a 60px
+                margin=dict(t=20,b=bottom_margin,l=10,r=10), 
+                xaxis=xaxis_config # Aplicamos la configuración rotada
+            )
+            # Aplicamos la configuración de rejilla vertical
+            fig.update_xaxes(**grid_config)
+            # Desactivamos las líneas horizontales (rejilla Y)
+            fig.update_yaxes(showgrid=False) 
+            st.plotly_chart(fig, use_container_width=True)
 
 
 # --- LECTURA DE USUARIOS (sin cambios) ---
@@ -361,10 +404,10 @@ if 'rol' not in st.session_state:
 if 'usuario' not in st.session_state: 
     st.session_state.usuario = None
 
-# --- LOGIN / INTERFAZ PRINCIPAL (con imagen) --- 
+# --- LOGIN / INTERFAZ PRINCIPAL (con imagen) (sin cambios) --- 
 if not st.session_state.login: 
     
-    # 💥 MODIFICACIÓN APLICADA: Cabecera con Imagen y Título 💥
+    # MODIFICACIÓN APLICADA: Cabecera con Imagen y Título 
     # Definir columnas para la cabecera de Login (Imagen, Título, Espaciador)
     # Se usan las mismas proporciones relativas para imagen y título que en el dashboard: [0.8, 3.8, ...]
     col_img_login, col_title_login, col_spacer_login = st.columns([0.8, 3.8, 6.2]) 
@@ -408,9 +451,9 @@ if not st.session_state.login:
                 st.error("Usuario o contraseña incorrectos")
 
 else: 
-    # --- Interfaz Principal (CABECERA ALINEADA Y BAJADA) --- 
+    # --- Interfaz Principal (CABECERA ALINEADA Y BAJADA) (sin cambios) --- 
     
-    # 💥 MODIFICACIÓN: Se añade una columna para la imagen ('logge.png').
+    # MODIFICACIÓN: Se añade una columna para la imagen ('logge.png').
     # Orden: [Imagen, Título, Espaciador, Bienvenida, Logout]
     col_img, col_title, col_spacer, col_welcome, col_logout = st.columns([0.8, 3.8, 3, 2, 1]) 
     
@@ -514,21 +557,30 @@ else:
             columnas_existentes = [col for col in COLUMNAS_SELECCIONADAS if col in datos.columns] 
             datos = datos[columnas_existentes] 
         except: 
+            # 💥 DATOS DE PRUEBA ACTUALIZADOS PARA EL NUEVO MAPEO (A-I) 💥
+            # Nota: El estado de prueba debe ser 'SATISFACTORIA' para coincidir con la corrección final.
             data = { 
-                'A': [101, 102, 103, 104, 105, 106, 107, 108, 109, 110] * 10, 
-                'B': [f'O{i}' for i in range(100)], 
-                'F': ['Finalizada'] * 100, 
-                'G': ['INSTALACION', 'VISITA TÉCNICA', 'REPOSICION', 'INSTALACION', 'VISITA TÉCNICA'] * 20, 
-                'O': ['Bogotá, 123', 'Bogotá, 456', 'Cali, 123', 'Cali, 456', 'Bogotá, 789', 'Medellín, 123', 'Medellín, 456', 'Medellín, 789', 'Cali, 789', 'Bogotá, 123'] * 10, 
-                'P': ['T|Juan Pérez (tecnico)', 'T|Juan Pérez (tecnico)', 'T|Pedro López (tecnico)', 'T|Pedro López', 'T|Ana Gómez (tecnico)', 'T|Ana Gómez', 'T|Juan Pérez (tecnico)', 'T|Juan Pérez', 'T|Pedro López (tecnico)', 'T|Ana Gómez (tecnico)'] * 10, 
-                'Q': ['C1']*100, 
-                'R': ['Cliente A']*100, 
-                'T': pd.to_datetime([f'2025-10-{d:02d}' for d in range(1, 11)] * 10) 
+                'ID_TAREA': [101, 102, 103, 104, 105, 106, 107, 108, 109, 110] * 10, # Usado como TAREA (G)
+                'TECNOLOGIA_COL': ['ADSL', 'ADSL', 'HFC', 'HFC', 'GPON', 'GPON', 'ADSL', 'HFC', 'GPON', 'ADSL'] * 10, # Usado como TECNOLOGÍA (F)
+                # IMPORTANTE: Usamos SATISFACTORIA e INSATISFACTORIA para probar la corrección de conteo
+                'ESTADO': ['SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA'] * 10, # Usado como ESTADO (H)
+                'TIPO_ORDEN': ['INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL', 'CAMBIO DE DIRECCIÓN', 'OTRO TIPO', 'INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL'] * 10, # Usado como TIPO_ORDEN (I)
+                'UBICACION': ['Bogotá, 123', 'Bogotá, 456', 'Cali, 123', 'Cali, 456', 'Bogotá, 789', 'Medellín, 123', 'Medellín, 456', 'Medellín, 789', 'Cali, 789', 'Bogotá, 123'] * 10, # Usado como UBICACIÓN (B)
+                'TECNICO': ['T|Juan Pérez (tecnico)', 'T|Juan Pérez (tecnico)', 'T|Pedro López (tecnico)', 'T|Pedro López', 'T|Ana Gómez (tecnico)', 'T|Ana Gómez', 'T|Juan Pérez (tecnico)', 'T|Juan Pérez', 'T|Pedro López (tecnico)', 'T|Ana Gómez (tecnico)'] * 10, # Usado como TÉCNICO (C)
+                'CONTRATO': ['C1']*100,                                              # Usado como CONTRATO (D)
+                'CLIENTE': ['Cliente A']*100,                                         # Usado como CLIENTE (E)
+                'FECHA': pd.to_datetime([f'2025-10-{d:02d}' for d in range(1, 11)] * 10) # Usado como FECHA (A)
             } 
             datos = pd.DataFrame(data) 
-            columnas_dummy = list(data.keys()) 
-            datos = datos.rename(columns={k: v for k, v in MAPEO_COLUMNAS.items() if k in columnas_dummy}) 
-            datos.columns = COLUMNAS_SELECCIONADAS
+            
+            # Renombramiento a las claves A-I
+            RENAME_DUMMY = {
+                'FECHA': 'A', 'UBICACION': 'B', 'TECNICO': 'C', 'CONTRATO': 'D', 'CLIENTE': 'E', 
+                'TECNOLOGIA_COL': 'F', 'ID_TAREA': 'G', 'ESTADO': 'H', 'TIPO_ORDEN': 'I'
+            }
+            datos = datos.rename(columns=RENAME_DUMMY)
+            datos.columns = COLUMNAS_SELECCIONADAS # Aseguramos el orden y las columnas finales
+            # 💥 FIN DATOS DE PRUEBA ACTUALIZADOS 💥
 
     if not archivos_para_combinar_nombres: 
         st.warning("Usando **Datos de Prueba** para mostrar la interfaz. Sube un archivo Excel para ver datos reales.")
@@ -615,86 +667,22 @@ else:
 
                 @st.cache_data 
                 def apply_filter(df, col_key_filtro, selected_options): 
-                    if not selected_options or col_key_filtro not in df.columns: 
+                    # Importante: Si selected_options está vacío, devolver el DF completo (comportamiento de filtro limpio)
+                    if not selected_options:
+                        return df
+                    if col_key_filtro not in df.columns: 
                         return df 
                     return df[df[col_key_filtro].astype(str).isin(selected_options)]
                     
-                # Función auxiliar para renderizar los gráficos de comparación (APILADOS VERTICALMENTE)
-                # 💥 FUNCIÓN CORREGIDA con texto permanente y rejilla vertical 💥
-                def render_comparison_charts_vertical(df_comparacion, x_col, title_prefix, is_city_view=False):
-                    # El título del grupo de gráficos (Rendimiento por Técnico o Ubicación)
-                    st.markdown(f"#### Rendimiento {title_prefix}")
-                    
-                    # El margen inferior ahora es siempre 60px para acomodar las etiquetas rotadas de ciudades y técnicos.
-                    bottom_margin = 60
-                    CHART_HEIGHT = 200 
-                    
-                    # La configuración del eje X ahora rota las etiquetas siempre a -45 grados.
-                    xaxis_config = {
-                        'tickangle': -45, 
-                        'tickfont': {'size': 9 if not is_city_view else 10} 
-                    }
+                # Se mantiene la función render_comparison_charts_vertical aquí por si el usuario la copia
 
-                    # CONFIGURACIÓN DE LAS LÍNEAS DE REJILLA VERTICALES DISCONTINUAS (PUNTEADAS) 
-                    grid_config = {
-                        'showgrid': True,
-                        'gridcolor': '#cccccc',  # Un color gris claro para la rejilla
-                        'griddash': 'dot'       # Tipo de línea: 'dot' (punteada)
-                    }
-
-                    # Gráfico 1: Instalaciones (APILADO)
-                    with st.container(border=True):
-                        st.markdown("##### Instalaciones")
-                        # Usamos la nueva altura
-                        fig_inst = px.line(df_comparacion, x=x_col, y='Total_Instalaciones', markers=True, text='Total_Instalaciones', height=CHART_HEIGHT) 
-                        
-                        # Mostrar el texto permanentemente encima del punto
-                        fig_inst.update_traces(textposition='top center') 
-                        
-                        fig_inst.update_layout(
-                            xaxis_title=None, 
-                            yaxis_title='Total', 
-                            # Margen inferior corregido a 60px
-                            margin=dict(t=20,b=bottom_margin,l=10,r=10), 
-                            xaxis=xaxis_config # Aplicamos la configuración rotada
-                        )
-                        # Aplicamos la configuración de rejilla vertical
-                        fig_inst.update_xaxes(**grid_config)
-                        # Desactivamos las líneas horizontales (rejilla Y)
-                        fig_inst.update_yaxes(showgrid=False) 
-                        st.plotly_chart(fig_inst, use_container_width=True)
-
-                    # Gráfico 2: Visitas (APILADO)
-                    with st.container(border=True):
-                        st.markdown("##### Visitas")
-                        # Usamos la nueva altura
-                        fig_vis = px.line(df_comparacion, x=x_col, y='Total_Visitas', markers=True, text='Total_Visitas', height=CHART_HEIGHT) 
-                        
-                        # Mostrar el texto permanentemente encima del punto
-                        fig_vis.update_traces(textposition='top center')
-                        
-                        fig_vis.update_layout(
-                            xaxis_title=None, 
-                            yaxis_title='Total', 
-                            # Margen inferior corregido a 60px
-                            margin=dict(t=20,b=bottom_margin,l=10,r=10), 
-                            xaxis=xaxis_config # Aplicamos la configuración rotada
-                        )
-                        # Aplicamos la configuración de rejilla vertical
-                        fig_vis.update_xaxes(**grid_config)
-                        # Desactivamos las líneas horizontales (rejilla Y)
-                        fig_vis.update_yaxes(showgrid=False)
-                        st.plotly_chart(fig_vis, use_container_width=True)
-                        
-                
                 # --- INICIO DEL PANEL DE CONTROL COMPACTO (Filtros y Métricas) --- 
                 with st.container(border=True):
                     
-                    # --- DECLARACIÓN ÚNICA DE COLUMNAS (1 Fila Horizontal) --- 
-                    # Orden: [Fecha Desde, Fecha Hasta, Ubicación, Técnico, Total Abs., Inst. Abs., Inst. %, Vis. Abs., Vis. %]
-                    # col_m_total_tasa (la 6ta columna de 0.5) ha sido eliminada.
-                    col_desde, col_hasta, col_ciu, col_tec, col_m_total_abs, col_m_inst_abs, col_m_inst_tasa, col_m_vis_abs, col_m_vis_tasa = st.columns(
-                        [1.0, 1.0, 1.3, 1.3, 1.2, 1.2, 1.0, 1.2, 1.0]
+                    # 💥 Redefinición de 14 columnas para incluir la nueva métrica de Satisfactorios 💥
+                    # Orden: F. Desde, F. Hasta, Ubicación, Técnico, Estado, Tipo Orden, Tecnología, Total Abs., Inst. Abs., Vis. Abs., Mig. Abs., Manual Abs., CD Abs., Sat. Abs.
+                    col_desde, col_hasta, col_ciu, col_tec, col_est, col_tipo_orden, col_tecnologia, col_m_total_abs, col_m_inst_abs, col_m_vis_abs, col_m_mig_abs, col_m_man_abs, col_m_cd_abs, col_m_sat_abs = st.columns(
+                        [0.6, 0.6, 0.9, 0.9, 0.9, 0.9, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8] # 14 columnas
                     )
 
                     # Lógica de Fechas (Filtrado) - Se mantiene en las primeras 2 columnas
@@ -720,23 +708,75 @@ else:
                     
                     # PRE-PROCESAMIENTO PARA FILTROS DE SEGMENTACIÓN 
                     if COL_TECNICO_KEY in datos_filtrados.columns: 
-                        # 💥 APLICACIÓN DE LA NUEVA LÓGICA DE LIMPIEZA 💥
                         datos_filtrados[COL_FILTRO_TECNICO] = datos_filtrados[COL_TECNICO_KEY].astype(str).apply(clean_tecnico) 
                     if COL_CIUDAD_KEY in datos_filtrados.columns: 
                         datos_filtrados[COL_FILTRO_CIUDAD] = datos_filtrados[COL_CIUDAD_KEY].astype(str).apply(clean_ciudad)
+
+                    # Estandarizar la columna de ESTADO (H)
+                    if COL_ESTADO_KEY in datos_filtrados.columns:
+                        datos_filtrados[COL_FILTRO_ESTADO] = datos_filtrados[COL_ESTADO_KEY].astype(str).str.upper().str.strip()
+                        datos_filtrados[COL_FILTRO_ESTADO].fillna("SIN ESTADO", inplace=True) 
+                    
+                    # Estandarizar la columna de TIPO DE ORDEN (I)
+                    if COL_TIPO_ORDEN_KEY in datos_filtrados.columns:
+                        datos_filtrados[COL_FILTRO_TIPO_ORDEN] = datos_filtrados[COL_TIPO_ORDEN_KEY].astype(str).str.upper().str.strip()
+                        datos_filtrados[COL_FILTRO_TIPO_ORDEN].fillna("SIN TIPO", inplace=True) 
+                    
+                    # Estandarizar la columna de TECNOLOGÍA (F)
+                    if COL_TECNOLOGIA_KEY in datos_filtrados.columns:
+                        datos_filtrados[COL_FILTRO_TECNOLOGIA] = datos_filtrados[COL_TECNOLOGIA_KEY].astype(str).str.upper().str.strip()
+                        datos_filtrados[COL_FILTRO_TECNOLOGIA].fillna("SIN TECNOLOGIA", inplace=True) 
+                    # 💥 FIN NUEVOS PRE-PROCESAMIENTOS 💥
 
                     df_all = datos_filtrados.copy()
                     
                     filtro_ciudad_actual = st.session_state.get('multiselect_ubicacion', []) 
                     filtro_tecnico_actual = st.session_state.get('multiselect_tecnico', [])
+                    filtro_estado_actual = st.session_state.get('multiselect_estado', []) 
+                    filtro_tipo_orden_actual = st.session_state.get('multiselect_tipo_orden', []) 
+                    filtro_tecnologia_actual = st.session_state.get('multiselect_tecnologia', []) 
 
-                    df_domain_ciu = apply_filter(df_all, COL_FILTRO_TECNICO, filtro_tecnico_actual) 
+                    # --- DEFINICIÓN DE DOMINIOS DINÁMICOS (CASCADA) ---
+                    
+                    # Dominios base para los cálculos
+                    df_domain_base = df_all.copy()
+                    
+                    # Dominio CIUDAD
+                    df_domain_ciu = apply_filter(df_domain_base, COL_FILTRO_TECNICO, filtro_tecnico_actual)
+                    df_domain_ciu = apply_filter(df_domain_ciu, COL_FILTRO_ESTADO, filtro_estado_actual)
+                    df_domain_ciu = apply_filter(df_domain_ciu, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
+                    df_domain_ciu = apply_filter(df_domain_ciu, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual) 
                     opciones_ciudad = get_multiselect_options(df_domain_ciu, COL_FILTRO_CIUDAD)
 
-                    df_domain_tec = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad_actual) 
+                    # Dominio TÉCNICO
+                    df_domain_tec = apply_filter(df_domain_base, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
+                    df_domain_tec = apply_filter(df_domain_tec, COL_FILTRO_ESTADO, filtro_estado_actual)
+                    df_domain_tec = apply_filter(df_domain_tec, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
+                    df_domain_tec = apply_filter(df_domain_tec, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual) 
                     opciones_tecnico = get_multiselect_options(df_domain_tec, COL_FILTRO_TECNICO)
+
+                    # Dominio ESTADO
+                    df_domain_est = apply_filter(df_domain_base, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
+                    df_domain_est = apply_filter(df_domain_est, COL_FILTRO_TECNICO, filtro_tecnico_actual)
+                    df_domain_est = apply_filter(df_domain_est, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
+                    df_domain_est = apply_filter(df_domain_est, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual) 
+                    opciones_estado = get_multiselect_options(df_domain_est, COL_FILTRO_ESTADO)
+
+                    # Dominio TIPO DE ORDEN 
+                    df_domain_tipo_orden = apply_filter(df_domain_base, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
+                    df_domain_tipo_orden = apply_filter(df_domain_tipo_orden, COL_FILTRO_TECNICO, filtro_tecnico_actual)
+                    df_domain_tipo_orden = apply_filter(df_domain_tipo_orden, COL_FILTRO_ESTADO, filtro_estado_actual)
+                    df_domain_tipo_orden = apply_filter(df_domain_tipo_orden, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual) 
+                    opciones_tipo_orden = get_multiselect_options(df_domain_tipo_orden, COL_FILTRO_TIPO_ORDEN) 
+
+                    # Dominio TECNOLOGÍA 
+                    df_domain_tecnologia = apply_filter(df_domain_base, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
+                    df_domain_tecnologia = apply_filter(df_domain_tecnologia, COL_FILTRO_TECNICO, filtro_tecnico_actual)
+                    df_domain_tecnologia = apply_filter(df_domain_tecnologia, COL_FILTRO_ESTADO, filtro_estado_actual)
+                    df_domain_tecnologia = apply_filter(df_domain_tecnologia, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
+                    opciones_tecnologia = get_multiselect_options(df_domain_tecnologia, COL_FILTRO_TECNOLOGIA) 
                     
-                    # --- RENDERIZADO DE FILTROS DE SEGMENTACIÓN (Ubicación y Técnico) ---
+                    # --- RENDERIZADO DE FILTROS DE SEGMENTACIÓN (Ubicación, Técnico, ESTADO, TIPO ORDEN, TECNOLOGÍA) ---
                     with col_ciu:
                         filtro_ciudad = st.multiselect(
                             f"**{COL_CIUDAD_DESCRIPTIVA}**:", 
@@ -754,27 +794,107 @@ else:
                             key='multiselect_tecnico',
                             placeholder="Código"
                         )
+
+                    with col_est:
+                        filtro_estado = st.multiselect(
+                            f"**{COL_ESTADO_DESCRIPTIVA}**:", 
+                            options=opciones_estado, 
+                            default=filtro_estado_actual, 
+                            key='multiselect_estado',
+                            placeholder="Estado"
+                        )
+
+                    # RENDERIZADO: Tipo de Orden 
+                    with col_tipo_orden:
+                        filtro_tipo_orden = st.multiselect(
+                            f"**{COL_TIPO_ORDEN_DESCRIPTIVA}**:", 
+                            options=opciones_tipo_orden, 
+                            default=filtro_tipo_orden_actual, 
+                            key='multiselect_tipo_orden',
+                            placeholder="Tipo Orden"
+                        )
+
+                    # RENDERIZADO: Tecnología 
+                    with col_tecnologia:
+                        filtro_tecnologia = st.multiselect(
+                            f"**{COL_TECNOLOGIA_DESCRIPTIVA}**:", 
+                            options=opciones_tecnologia, 
+                            default=filtro_tecnologia_actual, 
+                            key='multiselect_tecnologia',
+                            placeholder="Tecnología"
+                        )
                         
                     # APLICACIÓN FINAL DE FILTROS DE SEGMENTACIÓN 
                     # Se aplican los filtros de multiselect al DataFrame ya filtrado por fecha (df_all)
                     df_final = apply_filter(df_all, COL_FILTRO_CIUDAD, filtro_ciudad) 
                     df_final = apply_filter(df_final, COL_FILTRO_TECNICO, filtro_tecnico) 
+                    df_final = apply_filter(df_final, COL_FILTRO_ESTADO, filtro_estado) 
+                    
+                    # NUEVOS FILTROS APLICADOS 
+                    if COL_FILTRO_TIPO_ORDEN:
+                        df_final = apply_filter(df_final, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden) 
+                    if COL_FILTRO_TECNOLOGIA:
+                        df_final = apply_filter(df_final, COL_FILTRO_TECNOLOGIA, filtro_tecnologia) 
+                    # FIN NUEVOS FILTROS 
+                    
                     datos_filtrados = df_final # CORRECCIÓN: Actualizamos datos_filtrados para que refleje todos los filtros
 
-                    # --- CÁLCULO DE MÉTRICAS CLAVE (AHORA SOBRE EL DATAFRAME FILTRADO) --- 
-                    total_registros = len(datos_filtrados) 
+                    # --- CÁLCULO DE MÉTRICAS CLAVE --- 
+                    
+                    # Contar el total de registros filtrados (Total Ordenes)
+                    if 'G' in datos_filtrados.columns:
+                        total_registros = datos_filtrados['G'].count()
+                    else:
+                        total_registros = len(datos_filtrados) 
+
+                    total_satisfactorios = 0 # Inicializar a 0
+
                     if COL_TIPO_ORDEN_KEY in datos_filtrados.columns: 
                         tipo_orden = datos_filtrados[COL_TIPO_ORDEN_KEY].astype(str)
+                        
+                        # Definir la columna del ESTADO para su conteo
+                        estado_tarea = datos_filtrados[COL_ESTADO_KEY].astype(str)
+                        
+                        # 👉 CORRECCIÓN FINAL DE LÓGICA: Contar 'SATISFACTORIA' y EXCLUIR 'INSATISFACTORIA'
+                        # Paso 1: Crea una Serie booleana para los que contienen 'SATISFACTORIA'
+                        es_satisfactoria = estado_tarea.str.contains('SATISFACTORIA', case=False, na=False)
+
+                        # Paso 2: Crea una Serie booleana para los que contienen 'INSATISFACTORIA'
+                        es_insatisfactoria = estado_tarea.str.contains('INSATISFACTORIA', case=False, na=False)
+
+                        # Paso 3: Cuenta la longitud de las filas que son SATISFACTORIA Y NO INSATISFACTORIA
+                        total_satisfactorios = len(
+                            datos_filtrados[es_satisfactoria & ~es_insatisfactoria]
+                        )
+                        # 💥 FIN CORRECCIÓN LÓGICA 💥
+                        
+                        
+                        # --- CÁLCULO DE MÉTRICAS CON REGEX (TIPOS DE ORDEN) ---
                         total_instalaciones = len(datos_filtrados[tipo_orden.str.contains('INSTALACION', case=False, na=False)]) 
-                        total_visitas_tecnicas = len(datos_filtrados[tipo_orden.str.contains('VISITA TÉCNICA', case=False, na=False)])
+                        
+                        # CORRECCIÓN 2: VISITA TECNICA sin tilde
+                        total_visitas_tecnicas = len(datos_filtrados[tipo_orden.str.contains('VISITA TECNICA', case=False, na=False)])
+                        
+                        # Detección de Migración (con/sin tilde)
+                        total_migracion = len(datos_filtrados[tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)])
+                        
+                        # total_satisfactorios ya fue calculado arriba.
+                        total_tarea_manual = len(datos_filtrados[tipo_orden.str.contains('TAREA MANUAL', case=False, na=False)])
+                        # Detección de Cambio de Dirección (con/sin tilde)
+                        total_cambio_direccion = len(datos_filtrados[tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True)])
+                        # --- FIN CÁLCULO REGEX ---
                     else: 
                         total_instalaciones, total_visitas_tecnicas = 0, 0 
-
-                    # CÁLCULO DE PORCENTAJES
+                        total_migracion, total_tarea_manual, total_cambio_direccion, total_satisfactorios = 0, 0, 0, 0 
+                    
+                    # CÁLCULO DE PORCENTAJES (Se mantienen, pero no se renderizan)
                     porc_instalaciones = (total_instalaciones / total_registros) * 100 if total_registros > 0 else 0 
                     porc_visitas = (total_visitas_tecnicas / total_registros) * 100 if total_registros > 0 else 0
+                    porc_migracion = (total_migracion / total_registros) * 100 if total_registros > 0 else 0
+                    porc_tarea_manual = (total_tarea_manual / total_registros) * 100 if total_registros > 0 else 0
+                    porc_cambio_direccion = (total_cambio_direccion / total_registros) * 100 if total_registros > 0 else 0
                     
-                    # --- RENDERIZADO DE MÉTRICAS COMPACTAS (Absolutos y Tasas) --- 
+                    # --- RENDERIZADO DE MÉTRICAS COMPACTAS (Solo Absolutos) --- 
                     
                     # Columna para Total Órdenes (Absoluto)
                     with col_m_total_abs: 
@@ -788,22 +908,34 @@ else:
                         st.metric(label="Instalaciones", value=f"{total_instalaciones:,}") 
                         st.markdown('</div>', unsafe_allow_html=True)
 
-                    # Columna para Instalaciones (Tasa)
-                    with col_m_inst_tasa: 
-                        st.markdown('<div class="percentage-value-compact">', unsafe_allow_html=True) 
-                        st.metric(label="Tasa %", value=f"{porc_instalaciones:.1f}%") 
-                        st.markdown('</div>', unsafe_allow_html=True)
-
                     # Columna para Visitas Téc. (Absoluto)
                     with col_m_vis_abs: 
                         st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
                         st.metric(label="Visitas Téc.", value=f"{total_visitas_tecnicas:,}") 
                         st.markdown('</div>', unsafe_allow_html=True)
 
-                    # Columna para Visitas Téc. (Tasa)
-                    with col_m_vis_tasa: 
-                        st.markdown('<div class="percentage-value-compact">', unsafe_allow_html=True) 
-                        st.metric(label="Tasa %", value=f"{porc_visitas:.1f}%") 
+                    # Columna para Migración (Absoluto) 
+                    with col_m_mig_abs: 
+                        st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
+                        st.metric(label="Migración", value=f"{total_migracion:,}") 
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # Columna para Tarea Manual (Absoluto) 
+                    with col_m_man_abs: 
+                        st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
+                        st.metric(label="Tarea Manual", value=f"{total_tarea_manual:,}") 
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                    # Columna para Cambio de Dirección (Absoluto) 
+                    with col_m_cd_abs: 
+                        st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
+                        st.metric(label="Cambio Dirección", value=f"{total_cambio_direccion:,}") 
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        
+                    # Columna para Total Satisfactorios (Absoluto) 
+                    with col_m_sat_abs: 
+                        st.markdown('<div class="metric-compact-container-total">', unsafe_allow_html=True) 
+                        st.metric(label="Total Satisfactorios", value=f"{total_satisfactorios:,}") 
                         st.markdown('</div>', unsafe_allow_html=True)
                     
                 # --- FIN DEL PANEL DE CONTROL COMPACTO ---
@@ -812,8 +944,7 @@ else:
                 
                 # ------------------------------------------------------------------------------------- 
                 # --- LAYOUT PRINCIPAL: DOS COLUMNAS (RAW vs. GRÁFICOS) --- 
-                # ------------------------------------------------------------------------------------- 
-                # Dividimos el espacio en dos columnas: 
+                # -------------------------------------------------------------------------------------
                 col_raw, col_graphs_group = st.columns([5, 15]) 
 
                 # ------------------------------------------------------------------------------------- 
@@ -829,18 +960,21 @@ else:
                     datos_vista = datos_filtrados_ordenados.rename(columns=FINAL_RENAMING_MAP) 
                     columnas_finales = [col for col in FINAL_RENAMING_MAP.values() if col in datos_vista.columns] 
                     
-                    # MUESTRA LOS DATOS DE TECNICO DEL CAMPO FILTRADO Y LIMPIO
-                    if COL_FILTRO_TECNICO in datos_filtrados_ordenados.columns and FINAL_RENAMING_MAP['P'] in datos_vista.columns:
-                         datos_vista[FINAL_RENAMING_MAP['P']] = datos_filtrados_ordenados[COL_FILTRO_TECNICO]
+                    # CORRECCIÓN KEYERROR 'P': Usar 'C' para el campo TÉCNICO 
+                    if COL_FILTRO_TECNICO in datos_filtrados_ordenados.columns and FINAL_RENAMING_MAP['C'] in datos_vista.columns:
+                         datos_vista[FINAL_RENAMING_MAP['C']] = datos_filtrados_ordenados[COL_FILTRO_TECNICO]
+                    # FIN CORRECCIÓN 
                     
                     datos_vista = datos_vista[columnas_finales]
 
                     # 2. Definición Final de Columnas por defecto 
-                    col_fecha_finalizacion = FINAL_RENAMING_MAP['T']
-                    col_tarea = FINAL_RENAMING_MAP['A']
-                    col_tecnico = FINAL_RENAMING_MAP['P']
-                    col_cliente = FINAL_RENAMING_MAP['R']
-                    col_contrato = FINAL_RENAMING_MAP['Q']
+                    # CORRECCIÓN KEYERROR 'T', etc.: Usar las nuevas claves 
+                    col_fecha_finalizacion = FINAL_RENAMING_MAP['A'] 
+                    col_tarea = FINAL_RENAMING_MAP['G'] 
+                    col_tecnico = FINAL_RENAMING_MAP['C'] 
+                    col_cliente = FINAL_RENAMING_MAP['E'] 
+                    col_contrato = FINAL_RENAMING_MAP['D'] 
+                    # FIN CORRECCIÓN 
                     
                     # Columnas por defecto (ORDEN SOLICITADO: Fecha, Técnico, Tarea, Contrato, Cliente)
                     default_cols_raw = [
@@ -890,7 +1024,7 @@ else:
                     # 1. Primera Fila de Gráficos (Anidada)
                     col_graphs_izq, col_graphs_der = st.columns([8, 7])
 
-                    # --- GRÁFICO TAREAS POR SEGMENTO --- 
+                    # --- GRÁFICO TAREAS POR SEGMENTO (sin cambios) --- 
                     with col_graphs_izq: 
                         with st.container(border=True): 
                             st.markdown("#### Tareas por Segmento (5 días)")
@@ -944,7 +1078,7 @@ else:
                             else: 
                                 st.info("No hay datos para el gráfico semanal.")
 
-                    # --- GRÁFICO TOP 5 TÉCNICOS --- 
+                    # --- GRÁFICO TOP 5 TÉCNICOS (sin cambios) --- 
                     with col_graphs_der: 
                         with st.container(border=True): 
                             st.markdown("#### Top 5 Técnicos") 
@@ -960,7 +1094,7 @@ else:
                     
                     
                     # *************************************************************************************
-                    # *** SECCIÓN: RENDIMIENTO DINÁMICO (ALTURA AUMENTADA Y FUENTE/ROTACIÓN AJUSTADA) ***
+                    # *** SECCIÓN: RENDIMIENTO DINÁMICO (sin cambios) ***
                     # *************************************************************************************
                     st.markdown("---") # Separador para la nueva sección
                     st.markdown("### 📈 Rendimiento Detallado de Órdenes")
@@ -973,6 +1107,7 @@ else:
                         if show_comparison_by_technician:
                             df_comparacion = prepare_comparison_data(datos_filtrados) 
                             if not df_comparacion.empty: 
+                                # Nota: la función render_comparison_charts_vertical se define arriba
                                 render_comparison_charts_vertical( 
                                     df_comparacion, 
                                     COL_FILTRO_TECNICO, 
