@@ -126,7 +126,8 @@ MAPEO_COLUMNAS = {
     'TECNOLOGÍA': 'F',
     'TAREA': 'G', 
     'ESTADO TAREA': 'H',
-    'TIPO DE ORDEN': 'I' 
+    'TIPO DE ORDEN': 'I',
+    'TIPO TAREA MANUAL':'J'
 }
 # 💥 FIN NUEVO MAPEO 💥
 
@@ -146,6 +147,8 @@ COL_CONTRATO_KEY = 'D'
 COL_CLIENTE_KEY = 'E'
 COL_TAREA_KEY = 'G'
 COL_TECNOLOGIA_KEY = 'F'
+COL_TIPO_MANUAL_KEY = 'J'
+
 # 💥 FIN CORRECCIÓN 💥
 
 COL_FECHA_DESCRIPTIVA = FINAL_RENAMING_MAP[COL_FECHA_KEY] 
@@ -158,6 +161,7 @@ COL_CIUDAD_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_CIUDAD_KEY, 'UBICACIÓN')
 COL_TIPO_ORDEN_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_ORDEN_KEY, 'TIPO DE ORDEN')
 COL_ESTADO_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_ESTADO_KEY, 'ESTADO TAREA')
 COL_TECNOLOGIA_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TECNOLOGIA_KEY, 'TECNOLOGÍA')
+COL_TIPO_MANUAL_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_MANUAL_KEY, 'TIPO TAREA MANUAL')
 
 # --- Nuevas columnas temporales para el filtrado limpio --- 
 COL_FILTRO_TECNICO = '_Filtro_Tecnico_' 
@@ -165,6 +169,7 @@ COL_FILTRO_CIUDAD = '_Filtro_Ubicacion_'
 COL_FILTRO_ESTADO = '_Filtro_Estado_' 
 COL_FILTRO_TIPO_ORDEN = '_Filtro_TipoOrden_'
 COL_FILTRO_TECNOLOGIA = '_Filtro_Tecnologia_'
+COL_FILTRO_TIPO_MANUAL = '_Filtro_TipoManual_'
 
 # --- Nuevas columnas para los Gráficos de Comparación --- 
 COL_SEGM_TIEMPO = '_SEGM_AÑO_MES_' 
@@ -562,23 +567,28 @@ else:
             data = { 
                 'ID_TAREA': [101, 102, 103, 104, 105, 106, 107, 108, 109, 110] * 10, # Usado como TAREA (G)
                 'TECNOLOGIA_COL': ['ADSL', 'ADSL', 'HFC', 'HFC', 'GPON', 'GPON', 'ADSL', 'HFC', 'GPON', 'ADSL'] * 10, # Usado como TECNOLOGÍA (F)
-                # IMPORTANTE: Usamos SATISFACTORIA e INSATISFACTORIA para probar la corrección de conteo
                 'ESTADO': ['SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA'] * 10, # Usado como ESTADO (H)
                 'TIPO_ORDEN': ['INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL', 'CAMBIO DE DIRECCIÓN', 'OTRO TIPO', 'INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL'] * 10, # Usado como TIPO_ORDEN (I)
                 'UBICACION': ['Bogotá, 123', 'Bogotá, 456', 'Cali, 123', 'Cali, 456', 'Bogotá, 789', 'Medellín, 123', 'Medellín, 456', 'Medellín, 789', 'Cali, 789', 'Bogotá, 123'] * 10, # Usado como UBICACIÓN (B)
                 'TECNICO': ['T|Juan Pérez (tecnico)', 'T|Juan Pérez (tecnico)', 'T|Pedro López (tecnico)', 'T|Pedro López', 'T|Ana Gómez (tecnico)', 'T|Ana Gómez', 'T|Juan Pérez (tecnico)', 'T|Juan Pérez', 'T|Pedro López (tecnico)', 'T|Ana Gómez (tecnico)'] * 10, # Usado como TÉCNICO (C)
                 'CONTRATO': ['C1']*100,                                              # Usado como CONTRATO (D)
                 'CLIENTE': ['Cliente A']*100,                                         # Usado como CLIENTE (E)
-                'FECHA': pd.to_datetime([f'2025-10-{d:02d}' for d in range(1, 11)] * 10) # Usado como FECHA (A)
+                'FECHA': pd.to_datetime([f'2025-10-{d:02d}' for d in range(1, 11)] * 10), # Usado como FECHA (A)
+                # 💥 NUEVOS DATOS PARA J 💥
+                # 'TAREA MANUAL' está en las posiciones 4 y 10 (índice 3 y 9)
+                'TIPO_TAREA_MANUAL': ['N/A', 'N/A', 'N/A', 'Auditoría', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'Retorno'] * 10 # Usado como TIPO TAREA MANUAL (J)
             } 
             datos = pd.DataFrame(data) 
-            
-            # Renombramiento a las claves A-I
+
+            # Renombramiento a las claves A-I (Línea ~382)
             RENAME_DUMMY = {
                 'FECHA': 'A', 'UBICACION': 'B', 'TECNICO': 'C', 'CONTRATO': 'D', 'CLIENTE': 'E', 
-                'TECNOLOGIA_COL': 'F', 'ID_TAREA': 'G', 'ESTADO': 'H', 'TIPO_ORDEN': 'I'
+                'TECNOLOGIA_COL': 'F', 'ID_TAREA': 'G', 'ESTADO': 'H', 'TIPO_ORDEN': 'I',
+                # 💥 NUEVO RENOMBRE J 💥
+                'TIPO_TAREA_MANUAL': 'J'
             }
             datos = datos.rename(columns=RENAME_DUMMY)
+
             datos.columns = COLUMNAS_SELECCIONADAS # Aseguramos el orden y las columnas finales
             # 💥 FIN DATOS DE PRUEBA ACTUALIZADOS 💥
 
@@ -682,9 +692,8 @@ else:
                 with st.container(border=True):
                     st.markdown("#### ⚙️ Filtros de Segmentación") # Título para la caja de filtros
                     
-                    # Redefinición de 7 columnas para los FILTROS
-                    col_desde, col_hasta, col_ciu, col_tec, col_est, col_tipo_orden, col_tecnologia = st.columns(
-                        [1.0, 1.0, 1.3, 1.3, 1.3, 1.3, 1.3] # 7 columnas para los filtros
+                    col_desde, col_hasta, col_ciu, col_tec, col_est, col_tipo_orden, col_tecnologia, col_tipo_manual = st.columns(
+                    [1.0, 1.0, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3] # 8 columnas para los filtros
                     )
 
                     # Lógica de Fechas (Filtrado) - Se mantiene en las primeras 2 columnas
@@ -728,6 +737,16 @@ else:
                     if COL_TECNOLOGIA_KEY in datos_filtrados.columns:
                         datos_filtrados[COL_FILTRO_TECNOLOGIA] = datos_filtrados[COL_TECNOLOGIA_KEY].astype(str).str.upper().str.strip()
                         datos_filtrados[COL_FILTRO_TECNOLOGIA].fillna("SIN TECNOLOGIA", inplace=True) 
+                    # 💥 NUEVO PRE-PROCESAMIENTO CORREGIDO PARA TIPO TAREA MANUAL (J) 💥
+                    if COL_TIPO_MANUAL_KEY in datos_filtrados.columns:
+                        # 1. Convertir a string, mayúsculas y limpiar espacios. Esto convierte NaN en la cadena 'NAN'.
+                        datos_filtrados[COL_FILTRO_TIPO_MANUAL] = datos_filtrados[COL_TIPO_MANUAL_KEY].astype(str).str.upper().str.strip()
+                        
+                        # 2. Reemplazar explícitamente la cadena 'NAN' (y 'NONE', por si acaso) con el placeholder deseado.
+                        datos_filtrados[COL_FILTRO_TIPO_MANUAL] = datos_filtrados[COL_FILTRO_TIPO_MANUAL].replace('NAN', 'SIN TIPO MANUAL')
+                        datos_filtrados[COL_FILTRO_TIPO_MANUAL] = datos_filtrados[COL_FILTRO_TIPO_MANUAL].replace('NONE', 'SIN TIPO MANUAL') # Para valores None de Python
+                        # El fillna original es ahora innecesario, pero esta lógica es más robusta.
+                    # 💥 FIN CORRECCIÓN 💥
                     
                     df_all = datos_filtrados.copy()
                     
@@ -737,6 +756,7 @@ else:
                     filtro_estado_actual = st.session_state.get('multiselect_estado', []) 
                     filtro_tipo_orden_actual = st.session_state.get('multiselect_tipo_orden', []) 
                     filtro_tecnologia_actual = st.session_state.get('multiselect_tecnologia', []) 
+                    filtro_tipo_manual_actual = st.session_state.get('multiselect_tipo_manual', [])
 
                     # --- DEFINICIÓN DE DOMINIOS DINÁMICOS (CASCADA) ---
                     
@@ -777,6 +797,12 @@ else:
                     df_domain_tecnologia = apply_filter(df_domain_tecnologia, COL_FILTRO_ESTADO, filtro_estado_actual)
                     df_domain_tecnologia = apply_filter(df_domain_tecnologia, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
                     opciones_tecnologia = get_multiselect_options(df_domain_tecnologia, COL_FILTRO_TECNOLOGIA) 
+                    df_domain_tipo_manual = apply_filter(df_domain_base, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
+                    df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_TECNICO, filtro_tecnico_actual)
+                    df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_ESTADO, filtro_estado_actual)
+                    df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
+                    df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual) 
+                    opciones_tipo_manual = get_multiselect_options(df_domain_tipo_manual, COL_FILTRO_TIPO_MANUAL)
                     
                     # --- RENDERIZADO DE FILTROS DE SEGMENTACIÓN (Ubicación, Técnico, ESTADO, TIPO ORDEN, TECNOLOGÍA) ---
                     with col_ciu:
@@ -825,6 +851,33 @@ else:
                             key='multiselect_tecnologia',
                             placeholder="Tecnología"
                         )
+
+                    with col_tipo_manual:
+                        # Lógica: Solo mostramos el filtro J si 'TAREA MANUAL' está seleccionado en el filtro I.
+                        if 'TAREA MANUAL' in filtro_tipo_orden:
+                                
+                                # Calcular dominio para el filtro condicional
+                                df_domain_tipo_manual = apply_filter(df_domain_base, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
+                                df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_TECNICO, filtro_tecnico_actual)
+                                df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_ESTADO, filtro_estado_actual)
+                                df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
+                                df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual) 
+                                opciones_tipo_manual = get_multiselect_options(df_domain_tipo_manual, COL_FILTRO_TIPO_MANUAL)
+                                
+                                filtro_tipo_manual = st.multiselect(
+                                    f"**{COL_TIPO_MANUAL_DESCRIPTIVA}**:", 
+                                    options=opciones_tipo_manual, 
+                                    default=st.session_state.get('multiselect_tipo_manual', []), 
+                                    key='multiselect_tipo_manual',
+                                    placeholder="Sub-tipo Manual"
+                                )
+                        else:
+                            # Si no se muestra el filtro, su valor debe ser None o vacío para no afectar el filtrado
+                            filtro_tipo_manual = [] 
+                            # Rellenar el espacio si no se muestra el filtro (opcional)
+                            st.markdown(f"<p style='margin-top:2.2rem; font-size: 0.9rem; color: #a0a0a0;'>{COL_TIPO_MANUAL_DESCRIPTIVA}</p>", unsafe_allow_html=True)
+                            st.markdown(f"<p style='font-size: 0.7rem; color: #a0a0a0;'>(Activa con 'TAREA MANUAL')</p>", unsafe_allow_html=True)
+
                         
                     # APLICACIÓN FINAL DE FILTROS DE SEGMENTACIÓN 
                     # Se aplican los filtros de multiselect al DataFrame ya filtrado por fecha (df_all)
@@ -837,6 +890,8 @@ else:
                         df_final = apply_filter(df_final, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden) 
                     if COL_FILTRO_TECNOLOGIA:
                         df_final = apply_filter(df_final, COL_FILTRO_TECNOLOGIA, filtro_tecnologia) 
+                    if COL_FILTRO_TIPO_MANUAL and filtro_tipo_manual:
+                        df_final = apply_filter(df_final, COL_FILTRO_TIPO_MANUAL, filtro_tipo_manual) 
                     # FIN NUEVOS FILTROS 
                     
                     datos_filtrados = df_final # Actualizamos datos_filtrados para que refleje todos los filtros.
@@ -1075,72 +1130,201 @@ else:
                     # 1. Primera Fila de Gráficos (Anidada)
                     col_graphs_izq, col_graphs_der = st.columns([8, 7])
 
-                    # --- GRÁFICO TAREAS POR SEGMENTO (sin cambios) --- 
-                    with col_graphs_izq: 
-                        with st.container(border=True): 
-                            st.markdown(f"#### Tareas por Segmento (5 días - Base: {estado_base.title()})")
 
-                            if len(datos_filtrados) > 0: 
+
+# --- GRÁFICO TAREAS POR SEGMENTO (MODIFICADO POR TECNOLOGÍA CON TILDE)
+                    
+                    # Usamos la clave corta ('F') para acceder al DataFrame (donde están los datos)
+                    COL_AGRUPACION_KEY = COL_TECNOLOGIA_KEY 
+                    # Usamos el nombre descriptivo ('TECNOLOGÍA') para etiquetar el gráfico
+                    COL_AGRUPACION_DESCRIPTIVA = COL_TECNOLOGIA_DESCRIPTIVA 
+
+                    with col_graphs_izq:
+
+                        with st.container(border=True):
+
+                            # Título con tilde
+                            st.markdown(f"#### Tareas por Tecnología (Base: {estado_base.title()})") 
+
+                            # 1. Verificar si la CLAVE ('F') existe en el DataFrame
+                            if len(datos_filtrados) > 0 and COL_AGRUPACION_KEY in datos_filtrados.columns:
+                                
+                                # 2. Preparar datos temporales para conteo
                                 datos_temp = datos_filtrados.copy() 
-                                datos_temp['DAY'] = datos_temp[COL_TEMP_DATETIME].dt.day 
-                                datos_temp['MONTH'] = datos_temp[COL_TEMP_DATETIME].dt.month 
-                                datos_temp['YEAR'] = datos_temp[COL_TEMP_DATETIME].dt.year 
-                                datos_temp['FIXED_WEEK'] = datos_temp['DAY'].apply(calculate_fixed_week) 
-                                datos_temp[COL_SEGM_TIEMPO] = datos_temp['YEAR'].astype(str) + '-' + datos_temp['MONTH'].astype(str).str.zfill(2) + '-' + datos_temp['FIXED_WEEK'].astype(str).str.zfill(2)
-
-                                conteo_segmentos = datos_temp.groupby(COL_SEGM_TIEMPO).size().reset_index(name='Total_Tareas')
-
-                                df_escala = conteo_segmentos.sort_values(by=COL_SEGM_TIEMPO, ascending=True)
-
-                                def get_segment_range(year_month_segm): 
-                                    parts = year_month_segm.split('-') 
-                                    if len(parts) != 3: return "Inválido" 
-                                    try: 
-                                        week_num, month_num, year = int(parts[2]), int(parts[1]), parts[0] 
-                                    except ValueError: return "Inválido"
-
-                                    ranges = { 
-                                        1: 'S1 (1-5)', 2: 'S2 (6-10)', 3: 'S3 (11-15)', 4: 'S4 (16-20)', 
-                                        5: 'S5 (21-25)', 6: 'S6 (26-30)', 7: 'S7 (31)' 
-                                    } 
-                                    month_name = pd.to_datetime(f"{month_num}", format='%m').strftime('%b') 
-                                    return f"{ranges.get(week_num, f'S{week_num}')} {month_name}/{year[-2:]}"
-
-                                df_escala['Segmento_Label'] = df_escala[COL_SEGM_TIEMPO].apply(get_segment_range)
-
-                                fig = px.bar( 
-                                    df_escala, 
-                                    x='Segmento_Label', 
-                                    y='Total_Tareas', 
-                                    text='Total_Tareas', 
-                                    color_discrete_sequence=['#4CAF50'] 
-                                ) 
-                                fig.update_layout( 
-                                    uniformtext_minsize=8, uniformtext_mode='hide', 
+                                
+                                # 3. Conteo de tareas por tecnologia usando la CLAVE ('F')
+                                # Agrupamos y contamos las ocurrencias de los valores en la columna 'F'
+                                conteo_tecnologia = datos_temp[COL_AGRUPACION_KEY].value_counts().reset_index()
+                                
+                                # 4. Renombrar la columna clave ('F') a su nombre descriptivo ('TECNOLOGÍA')
+                                # Esto permite que Plotly use 'TECNOLOGÍA' como etiqueta sin dar error.
+                                conteo_tecnologia.columns = [COL_AGRUPACION_DESCRIPTIVA, 'Total_Tareas']
+                                
+                                # 5. Creación del gráfico de barras
+                                fig = px.bar(
+                                    conteo_tecnologia,
+                                    x=COL_AGRUPACION_DESCRIPTIVA, # Eje X: 'TECNOLOGÍA' (Nombre Descriptivo)
+                                    y='Total_Tareas',             # Eje Y: Conteo
+                                    text='Total_Tareas',
+                                    color=COL_AGRUPACION_DESCRIPTIVA, 
+                                    color_discrete_sequence=['#4CAF50', '#2196F3', '#FF9800', '#9C27B0'] 
+                                )
+                                fig.update_layout(
+                                    uniformtext_minsize=8, uniformtext_mode='hide',
                                     xaxis_title=None, 
-                                    yaxis_title='Tareas', 
-                                    margin=dict(t=20, b=10, l=10, r=10), 
-                                    height=200, # ALTURA AUMENTADA
-                                    xaxis={'tickangle': -45}
-                                ) 
-                                fig.update_traces(textposition='outside') 
-                                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}) 
-                            else: 
-                                st.info("No hay datos para el gráfico semanal con la base seleccionada.")
+                                    yaxis_title='Tareas',
+                                    margin=dict(t=20, b=10, l=10, r=10),
+                                    height=200, 
+                                    xaxis={'tickangle': 0}
+                                )
+                                fig.update_traces(textposition='outside')
+                                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-                    # --- GRÁFICO TOP 5 TÉCNICOS (sin cambios) --- 
+                            else:
+                                # Mensaje de error ajustado para que sea más claro
+                                st.info(f"No hay datos de tareas o la columna '{COL_AGRUPACION_KEY}' (TECNOLOGÍA) no fue encontrada en los datos filtrados.")
+
+
+
+
+
+# [ ... CÓDIGO ANTERIOR EN app.py HASTA LA SECCIÓN DEL GRÁFICO DE PASTEL ... ]
+# ... (código hasta el bloque 'with col_graphs_der:')
+# [ ... ]
+
+# --- GRÁFICO CONDICIONAL: TOP 5 TÉCNICOS / DISTRIBUCIÓN POR TÉCNICO / DISTRIBUCIÓN GENERAL ---
                     with col_graphs_der: 
                         with st.container(border=True): 
-                            st.markdown(f"#### Top 5 Técnicos (Base: {estado_base.title()})") 
-                            if COL_FILTRO_TECNICO in datos_filtrados.columns and len(datos_filtrados) > 0: 
-                                top_tecnicos = datos_filtrados[COL_FILTRO_TECNICO].value_counts().head(5).reset_index() 
-                                top_tecnicos.columns = ['Técnico', 'Total Tareas']
+                            
+                            # Lógica para determinar el estado de los filtros
+                            is_single_city_selected = len(filtro_ciudad) == 1
+                            is_single_technician_selected = len(filtro_tecnico) == 1
+                            
+                            # -------------------------------------------------------------------------
+                            # CONDICIÓN 1: FILTRO POR UN SOLO TÉCNICO (NUEVA LÓGICA)
+                            # -------------------------------------------------------------------------
+                            if is_single_technician_selected:
+                                # --- CASO 1: UN SOLO TÉCNICO SELECCIONADO (DISTRIBUCIÓN POR UBICACIÓN DEL TÉCNICO) ---
+                                selected_technician = filtro_tecnico[0]
+                                st.markdown(f"#### Tareas de **{selected_technician}** por Ubicación")
+                                
+                                # Condición de datos: Usar COL_FILTRO_CIUDAD y asegurar que haya datos
+                                if COL_FILTRO_CIUDAD in datos_filtrados.columns and len(datos_filtrados) > 0: 
+                                    
+                                    # La base de datos filtrados ya contiene solo las órdenes del técnico seleccionado
+                                    
+                                    # 1. Calcular el total de tareas por ciudad (COL_FILTRO_CIUDAD)
+                                    conteo_ubicaciones = datos_filtrados[COL_FILTRO_CIUDAD].value_counts().reset_index() 
+                                    conteo_ubicaciones.columns = ['Ubicación', 'Total Tareas']
 
-                                fig_pie = px.pie(top_tecnicos, values='Total Tareas', names='Técnico', hole=.4, color_discrete_sequence=px.colors.qualitative.Pastel) 
-                                fig_pie.update_layout(showlegend=True, margin=dict(l=0, r=0, t=20, b=0), height=200) # ALTURA AUMENTADA
-                                st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False}) 
-                            else: 
-                                st.info("Datos insuficientes para Top Técnico con la base seleccionada.")
+                                    # 2. Crear el gráfico de pastel
+                                    fig_pie = px.pie(
+                                        conteo_ubicaciones, 
+                                        values='Total Tareas', 
+                                        names='Ubicación',      
+                                        hole=.4, 
+                                        color_discrete_sequence=px.colors.qualitative.Pastel
+                                    ) 
+                                    
+                                    fig_pie.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#000000', width=1)))
+                                    
+                                    fig_pie.update_layout(
+                                        showlegend=True, 
+                                        margin=dict(l=0, r=0, t=20, b=0), 
+                                        height=200 
+                                    )
+                                    
+                                    st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': True})
+                                else: 
+                                    st.info(f"No hay registros de tareas de **{selected_technician}** para mostrar su distribución por ubicación.")
+
+                            # -------------------------------------------------------------------------
+                            # CONDICIÓN 2: FILTRO POR UNA SOLA CIUDAD (LÓGICA ANTERIOR)
+                            # -------------------------------------------------------------------------
+                            elif is_single_city_selected:
+                                # --- CASO 2: UNA SOLA CIUDAD SELECCIONADA (TOP 5 TÉCNICOS) ---
+                                selected_city = filtro_ciudad[0]
+                                st.markdown(f"#### Top 5 Técnicos por Tareas Realizadas en: **{selected_city}**")
+                                
+                                if COL_FILTRO_TECNICO in datos_filtrados.columns and COL_FILTRO_CIUDAD in datos_filtrados.columns and len(datos_filtrados) > 0: 
+                                    
+                                    # Aseguramos que la base solo contiene registros de la ciudad seleccionada
+                                    df_city_base = datos_filtrados[datos_filtrados[COL_FILTRO_CIUDAD] == selected_city].copy()
+                                    
+                                    if not df_city_base.empty:
+                                        # 1. Calcular el total de tareas por técnico
+                                        conteo_tecnicos = df_city_base[COL_FILTRO_TECNICO].value_counts().reset_index() 
+                                        conteo_tecnicos.columns = ['Técnico', 'Total Tareas']
+                                        
+                                        # 2. Obtener SOLO el Top 5 
+                                        df_pie_final = conteo_tecnicos.head(5)
+
+                                        if not df_pie_final.empty:
+                                            # 3. Crear el gráfico de pastel
+                                            fig_pie = px.pie(
+                                                df_pie_final, 
+                                                values='Total Tareas', 
+                                                names='Técnico',      
+                                                hole=.4, 
+                                                color_discrete_sequence=px.colors.qualitative.Dark24
+                                            ) 
+                                            
+                                            fig_pie.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#000000', width=1)))
+                                            
+                                            fig_pie.update_layout(
+                                                showlegend=True, 
+                                                margin=dict(l=0, r=0, t=20, b=0), 
+                                                height=200 
+                                            )
+                                            
+                                            st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': True})
+                                        else:
+                                            st.info(f"No hay tareas completadas por técnicos para **{selected_city}** en la base seleccionada ({estado_base.title()}).")
+                                    else:
+                                        st.info(f"No hay tareas completadas para **{selected_city}** en la base seleccionada ({estado_base.title()}).")
+                                else: 
+                                    st.info("Datos insuficientes para la Distribución por Técnico.")
+
+                            # -------------------------------------------------------------------------
+                            # CONDICIÓN 3: COMPORTAMIENTO POR DEFECTO / MÚLTIPLES FILTROS
+                            # -------------------------------------------------------------------------
+                            else:
+                                # --- CASO 3: NINGÚN FILTRO INDIVIDUAL ACTIVO (DISTRIBUCIÓN POR UBICACIÓN - COMPORTAMIENTO ORIGINAL) ---
+                                
+                                st.markdown(f"#### Distribución por Ubicación (Base: {estado_base.title()})") 
+                                
+                                if COL_FILTRO_CIUDAD in datos_filtrados.columns and len(datos_filtrados) > 0: 
+                                    
+                                    # 1. Calcular el total de tareas por ciudad (COL_FILTRO_CIUDAD)
+                                    conteo_ciudades = datos_filtrados[COL_FILTRO_CIUDAD].value_counts().reset_index() 
+                                    conteo_ciudades.columns = ['Ubicación', 'Total Tareas']
+
+                                    # 2. Crear el gráfico de pastel con todas las ciudades
+                                    fig_pie = px.pie(
+                                        conteo_ciudades, 
+                                        values='Total Tareas', 
+                                        names='Ubicación',      
+                                        hole=.4, 
+                                        color_discrete_sequence=px.colors.qualitative.Pastel
+                                    ) 
+                                    
+                                    fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+                                    
+                                    fig_pie.update_layout(
+                                        showlegend=True, 
+                                        margin=dict(l=0, r=0, t=20, b=0), 
+                                        height=200 
+                                    )
+                                    if len(conteo_ciudades) > 10:
+                                        fig_pie.update_layout(legend={'font': {'size': 8}}) 
+                                    
+                                    st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': True})
+                                else: 
+                                    st.info("Datos insuficientes para la Distribución por Ubicación con la base seleccionada.")
+
+# [ ... CÓDIGO RESTANTE EN app.py ... ]
+
+
                     
                     
 # *************************************************************************************
