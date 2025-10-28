@@ -224,6 +224,7 @@ def calculate_fixed_week(day):
 # --- FUNCIONES DE COMPARACIÓN --- 
 @st.cache_data 
 def prepare_comparison_data(df): 
+    # Mantiene la agrupación por [CIUDAD, TÉCNICO] para permitir filtrado por una sola ciudad
     if df.empty: 
         return pd.DataFrame()
 
@@ -235,10 +236,8 @@ def prepare_comparison_data(df):
         df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TECNICA', case=False, na=False).astype(int)
         
         # --- CORRECCIÓN DE DETECCIÓN DE TILDES CON REGEX ---
-        # Match 'MIGRACION' o 'MIGRACIÓN' (case-insensitive)
         df_temp[COL_TIPO_MIGRACION] = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True).astype(int)
         df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
-        # Match 'CAMBIO DE DIRECCION' o 'CAMBIO DE DIRECCIÓN' (case-insensitive)
         df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
         # --- FIN CORRECCIÓN ---
     else: 
@@ -259,14 +258,16 @@ def prepare_comparison_data(df):
         Total_Migracion=(COL_TIPO_MIGRACION, 'sum'),
         Total_TareaManual=(COL_TIPO_MANUAL, 'sum'),
         Total_CambioDireccion=(COL_TIPO_CAMBIO_DIR, 'sum'),
+        # Columna Total_Tareas para cualquier uso futuro, incluyendo la vista
+        Total_Tareas=(COL_TIPO_INST, 'count') # Contar todas las filas en el grupo
     ).reset_index()
 
     df_grouped['Total_Instalaciones'] = df_grouped['Total_Instalaciones'].astype(int) 
     df_grouped['Total_Visitas'] = df_grouped['Total_Visitas'].astype(int)
-    # Convertimos a int 
     df_grouped['Total_Migracion'] = df_grouped['Total_Migracion'].astype(int)
     df_grouped['Total_TareaManual'] = df_grouped['Total_TareaManual'].astype(int)
     df_grouped['Total_CambioDireccion'] = df_grouped['Total_CambioDireccion'].astype(int)
+    df_grouped['Total_Tareas'] = df_grouped['Total_Tareas'].astype(int) # Asegurar el tipo
 
     return df_grouped.sort_values(by=COL_FILTRO_TECNICO)
 
@@ -1014,7 +1015,7 @@ else:
 
                     df_to_display = datos_vista[cols_to_show] if cols_to_show else datos_vista
 
-                    # 4. Implementación de overflow horizontal 
+# 4. Implementación de overflow horizontal 
                     st.markdown('<div style="overflow-x: auto;">', unsafe_allow_html=True) 
                     st.data_editor( 
                         df_to_display, 
@@ -1029,6 +1030,42 @@ else:
                         num_rows="fixed" 
                     ) 
                     st.markdown('</div>', unsafe_allow_html=True)
+
+                    # --- INICIO NUEVA EXPORTACIÓN FULL (Contiene todos los registros filtrados) ---
+                    import io 
+                    from datetime import datetime
+                    
+                    # 1. PREPARAR DATOS COMPLETOS PARA EXPORTACIÓN
+                    # Usamos 'df_final' porque ya tiene aplicados TODOS los filtros de segmentación (fechas, multiselect).
+                    df_export_full = df_final.copy()
+                    
+                    # Renombrar todas las columnas (columnas originales) al formato final
+                    # Esto asegura que el archivo exportado tenga todas las columnas que el usuario espera,
+                    # no solo las seleccionadas en el multiselect de la tabla RAW.
+                    df_export_full.rename(columns=FINAL_RENAMING_MAP, inplace=True)
+                    
+                    # Filtra las columnas para que solo queden las renombradas y las usa en el orden deseado
+                    columnas_exportacion = [col for col in FINAL_RENAMING_MAP.values() if col in df_export_full.columns]
+                    df_export_full = df_export_full[columnas_exportacion]
+
+                    # 2. Crear un buffer en memoria para guardar el archivo Excel
+                    excel_buffer = io.BytesIO()
+                    
+                    # 3. Escribir el DataFrame COMPLETO en el buffer como un archivo XLSX
+                    df_export_full.to_excel(excel_buffer, index=False, sheet_name='Exportacion_Completa')
+                    
+                    # 4. Volver al inicio del buffer antes de la descarga
+                    excel_buffer.seek(0)
+                    
+                    st.download_button(
+                        label=f"⬇️ Descargar TODOS los {len(df_export_full)} Registros Filtrados (Excel .xlsx)",
+                        data=excel_buffer, 
+                        file_name=f'exportacion_full_filtrada_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx',
+                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        use_container_width=True,
+                        key='download_raw_excel_full'
+                    )
+                    # --- FIN NUEVA EXPORTACIÓN FULL ---
 
                 # ------------------------------------------------------------------------------------- 
                 # --- COLUMNA 2: GRUPO DE GRÁFICOS (DERECHA) --- 
@@ -1106,8 +1143,8 @@ else:
                                 st.info("Datos insuficientes para Top Técnico con la base seleccionada.")
                     
                     
-                    # *************************************************************************************
-                    # *** SECCIÓN: RENDIMIENTO DINÁMICO (sin cambios) ***
+# *************************************************************************************
+                    # *** SECCIÓN: RENDIMIENTO DINÁMICO (Lógica Modificada) ***
                     # *************************************************************************************
                     st.markdown("---") # Separador para la nueva sección
                     st.markdown(f"### 📈 Rendimiento Detallado de Órdenes (Base: {estado_base.title()})")
@@ -1115,29 +1152,41 @@ else:
                     # Contenedor principal para la sección de rendimiento
                     with st.container(border=True): 
                         
-                        show_comparison_by_technician = (len(filtro_ciudad) == 1 and COL_FILTRO_TECNICO in datos_filtrados.columns)
+                        # Definición de las condiciones
+                        is_single_technician = len(filtro_tecnico) == 1
+                        is_single_city = len(filtro_ciudad) == 1
 
-                        if show_comparison_by_technician:
-                            df_comparacion = prepare_comparison_data(datos_filtrados) 
-                            if not df_comparacion.empty: 
-                                render_comparison_charts_vertical( 
-                                    df_comparacion, 
-                                    COL_FILTRO_TECNICO, 
-                                    f"por Técnico en: **{filtro_ciudad[0]}**", 
-                                    is_city_view=False 
-                                ) 
-                            else:
-                                st.info("No hay datos de rendimiento por técnico en la ubicación seleccionada con la base actual.")
-                        
+                        if is_single_technician:
+                            # CASO 1: Un solo técnico seleccionado -> Mostrar distribución por CIUDAD
+                            df_comparacion_view = prepare_city_comparison_data(datos_filtrados) # Agrupación por Ciudad
+                            x_column_to_plot = COL_FILTRO_CIUDAD # Eje X: Ciudad
+                            title = f"por Ubicación para Técnico: **{filtro_tecnico[0]}**"
+                            is_city_view = True
+                            
+                        elif is_single_city:
+                            # CASO 2: Varios técnicos, pero una sola ciudad -> Mostrar por TÉCNICO
+                            # Nota: prepare_comparison_data agrupa por Ciudad/Técnico.
+                            df_comparacion_view = prepare_comparison_data(datos_filtrados)
+                            x_column_to_plot = COL_FILTRO_TECNICO # Eje X: Técnico
+                            title = f"por Técnico en: **{filtro_ciudad[0]}**"
+                            is_city_view = False
+                            
                         else:
-                            df_comparacion_city = prepare_city_comparison_data(datos_filtrados)
-                            if not df_comparacion_city.empty:
-                                render_comparison_charts_vertical(
-                                    df_comparacion_city, 
-                                    COL_FILTRO_CIUDAD, 
-                                    "por Ubicación", 
-                                    is_city_view=True
-                                )
-                            else:
-                                st.info("No hay datos para la comparación por ubicación con los filtros actuales.")
+                            # CASO 3: Múltiples técnicos y múltiples ciudades / Sin filtros -> Mostrar por CIUDAD (Vista general)
+                            df_comparacion_view = prepare_city_comparison_data(datos_filtrados) # Agrupación por Ciudad
+                            x_column_to_plot = COL_FILTRO_CIUDAD # Eje X: Ciudad
+                            title = "por Ubicación"
+                            is_city_view = True
+
+                        
+                        # --- RENDERIZADO FINAL ---
+                        if not df_comparacion_view.empty: 
+                            render_comparison_charts_vertical( 
+                                df_comparacion_view, 
+                                x_column_to_plot, 
+                                title, 
+                                is_city_view=is_city_view 
+                            ) 
+                        else:
+                            st.info("No hay datos de rendimiento con los filtros aplicados para esta visualización.")
                     # *************************************************************************************
