@@ -640,7 +640,7 @@ else:
 
             st.markdown("---")
 
-    # ---------------------------------------------------------------------- 
+# ---------------------------------------------------------------------- 
     # --- PESTAÑA DEL DASHBOARD --- 
     # ---------------------------------------------------------------------- 
     with tab_dashboard: 
@@ -675,12 +675,15 @@ else:
                     
                 # Se mantiene la función render_comparison_charts_vertical aquí por si el usuario la copia
 
-                # --- INICIO DEL PANEL DE CONTROL COMPACTO (Filtros y Métricas) --- 
+                # -----------------------------------------------------------------------------
+                # --- INICIO DEL PANEL DE CONTROL COMPACTO (1/2): FILTROS --- 
+                # -----------------------------------------------------------------------------
                 with st.container(border=True):
+                    st.markdown("#### ⚙️ Filtros de Segmentación") # Título para la caja de filtros
                     
-                    # 💥 Redefinición de 14 columnas 💥
-                    col_desde, col_hasta, col_ciu, col_tec, col_est, col_tipo_orden, col_tecnologia, col_m_total_abs, col_m_inst_abs, col_m_vis_abs, col_m_mig_abs, col_m_man_abs, col_m_cd_abs, col_m_sat_abs = st.columns(
-                        [0.6, 0.6, 0.9, 0.9, 0.9, 0.9, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8] # 14 columnas
+                    # Redefinición de 7 columnas para los FILTROS
+                    col_desde, col_hasta, col_ciu, col_tec, col_est, col_tipo_orden, col_tecnologia = st.columns(
+                        [1.0, 1.0, 1.3, 1.3, 1.3, 1.3, 1.3] # 7 columnas para los filtros
                     )
 
                     # Lógica de Fechas (Filtrado) - Se mantiene en las primeras 2 columnas
@@ -837,11 +840,25 @@ else:
                     
                     datos_filtrados = df_final # Actualizamos datos_filtrados para que refleje todos los filtros.
 
+                # --- FIN DEL PANEL DE CONTROL COMPACTO (1/2): FILTROS ---
+                
+# -----------------------------------------------------------------------------
+                # --- INICIO DEL PANEL DE CONTROL COMPACTO (2/2): MÉTRICAS (SIN 'Total Ordenes') --- 
+                # -----------------------------------------------------------------------------
+                # Este contenedor está inmediatamente debajo del anterior (Filtros)
+                with st.container(border=True):
+                    st.markdown("#### 🎯 Métricas Clave (KPIs)") # Título para la caja de métricas
+                    
+                    # 💥 Redefinición de 6 columnas para MÉTRICAS (Se eliminó col_m_total_abs) 💥
+                    col_m_inst_abs, col_m_vis_abs, col_m_mig_abs, col_m_man_abs, col_m_cd_abs, col_m_sat_abs = st.columns(
+                        [1.0, 1.0, 1.0, 1.0, 1.0, 1.0] # Ahora son 6 columnas en total
+                    )
+
                     # ------------------------------------------------------------------------------------- 
                     # --- CÁLCULO DE MÉTRICAS CLAVE (DINÁMICO BASADO EN FILTRO DE ESTADO) --- 
                     # -------------------------------------------------------------------------------------
 
-                    # Contar el total de registros filtrados (Total Ordenes UNFILTERED)
+                    # El cálculo de total_registros_unfiltered ya no se usará para mostrar, pero se mantiene por si es necesario en el futuro.
                     if COL_TAREA_KEY in datos_filtrados.columns:
                         total_registros_unfiltered = datos_filtrados[COL_TAREA_KEY].count()
                     else:
@@ -887,13 +904,9 @@ else:
                         total_instalaciones, total_visitas_tecnicas = 0, 0 
                         total_migracion, total_tarea_manual, total_cambio_direccion = 0, 0, 0 
                     
-                    # --- RENDERIZADO DE MÉTRICAS COMPACTAS (Ajustado para mostrar la etiqueta dinámica) --- 
+                    # --- RENDERIZADO DE MÉTRICAS COMPACTAS (Una sola fila) --- 
                     
-                    # Columna para Total Órdenes (Absoluto - UNFILTERED)
-                    with col_m_total_abs: 
-                        st.markdown('<div class="metric-compact-container">', unsafe_allow_html=True) 
-                        st.metric(label="Total Ordenes", value=f"{total_registros_unfiltered:,}") 
-                        st.markdown('</div>', unsafe_allow_html=True)
+                    # 💥 Columna para Total Órdenes (Absoluto - ELIMINADA) 💥
                     
                     # Columna para Instalaciones (Absoluto)
                     with col_m_inst_abs: 
@@ -931,7 +944,7 @@ else:
                         st.metric(label=etiqueta_total_base, value=f"{total_base:,}") 
                         st.markdown('</div>', unsafe_allow_html=True)
                     
-                # --- FIN DEL PANEL DE CONTROL COMPACTO ---
+                # --- FIN DEL PANEL DE CONTROL COMPACTO (2/2): MÉTRICAS ---
 
                 st.markdown("---")
                 
@@ -952,6 +965,7 @@ else:
                 # --- COLUMNA 1: TABLA DE DATOS RAW (IZQUIERDA) --- 
                 # -------------------------------------------------------------------------------------
                 with col_raw:
+                    # ... (El código de la tabla RAW permanece sin cambios) ...
                     st.markdown(f"#### 📑 Datos RAW ({len(datos_filtrados)} registros - Base Dinámica)")
 
                     # 1. ORDENAR LOS DATOS POR FECHA (MÁS ANTIGUA A MÁS RECIENTE)
