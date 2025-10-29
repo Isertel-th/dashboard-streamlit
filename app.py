@@ -134,6 +134,381 @@ MAPEO_COLUMNAS = {
 COLUMNAS_SELECCIONADAS = list(MAPEO_COLUMNAS.values()) 
 ENCABEZADOS_ESPERADOS = list(MAPEO_COLUMNAS.keys())
 
+# 2. DEFINICIÓN DEL MAPEO INVERSO (Letra Corta -> Nombre Descriptivo) 
+FINAL_RENAMING_MAP = {v: k for k, v in MAPEO_COLUMNAS.items()} 
+
+# 💥 CORRECCIÓN DE CLAVES DE COLUMNA A LAS NUEVAS LETRAS 💥
+COL_FECHA_KEY = 'A' 
+COL_TECNICO_KEY = 'C' 
+COL_CIUDAD_KEY = 'B' 
+COL_TIPO_ORDEN_KEY = 'I'
+COL_ESTADO_KEY = 'H' 
+COL_CONTRATO_KEY = 'D'
+COL_CLIENTE_KEY = 'E'
+COL_TAREA_KEY = 'G'
+COL_TECNOLOGIA_KEY = 'F'
+COL_TIPO_MANUAL_KEY = 'J'
+
+# 💥 FIN CORRECCIÓN 💥
+
+COL_FECHA_DESCRIPTIVA = FINAL_RENAMING_MAP[COL_FECHA_KEY] 
+COL_TEMP_DATETIME = '_DATETIME_' + COL_FECHA_KEY 
+COL_FINAL_SEMANA_GRAFICO = 'SEMANA_DE_GRÁFICO'
+
+# Columnas clave para los filtros 
+COL_TECNICO_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TECNICO_KEY, 'TÉCNICO') 
+COL_CIUDAD_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_CIUDAD_KEY, 'UBICACIÓN') 
+COL_TIPO_ORDEN_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_ORDEN_KEY, 'TIPO DE ORDEN')
+COL_ESTADO_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_ESTADO_KEY, 'ESTADO TAREA')
+COL_TECNOLOGIA_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TECNOLOGIA_KEY, 'TECNOLOGÍA')
+COL_TIPO_MANUAL_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_MANUAL_KEY, 'TIPO TAREA MANUAL')
+
+# --- Nuevas columnas temporales para el filtrado limpio --- 
+COL_FILTRO_TECNICO = '_Filtro_Tecnico_' 
+COL_FILTRO_CIUDAD = '_Filtro_Ubicacion_'
+COL_FILTRO_ESTADO = '_Filtro_Estado_' 
+COL_FILTRO_TIPO_ORDEN = '_Filtro_TipoOrden_'
+COL_FILTRO_TECNOLOGIA = '_Filtro_Tecnologia_'
+COL_FILTRO_TIPO_MANUAL = '_Filtro_TipoManual_'
+
+# --- Nuevas columnas para los Gráficos de Comparación --- 
+COL_SEGM_TIEMPO = '_SEGM_AÑO_MES_' 
+COL_TIPO_INST = '_ES_INSTALACION_' 
+COL_TIPO_VISITA = '_ES_VISITA_'
+COL_TIPO_MIGRACION = '_ES_MIGRACION_'
+COL_TIPO_MANUAL = '_ES_TAREA_MANUAL_'
+COL_TIPO_CAMBIO_DIR = '_ES_CAMBIO_DIRECCION_'
+
+
+# --- FUNCIONES DE LIMPIEZA PARA FILTROS (sin cambios) --- 
+@st.cache_data 
+def clean_tecnico(tecnico): 
+    """
+    Extrae el nombre del técnico después del '|' y elimina '(tecnico)' al final.
+    """ 
+    s = str(tecnico).strip()
+
+    # 1. Extraer lo que está después del '|'
+    if '|' in s: 
+        s = s.split('|', 1)[1].strip() 
+
+    # 2. Eliminar la cadena ' (tecnico)' al final (insensible a mayúsculas/minúsculas)
+    suffix = ' (tecnico)'
+    if s.lower().endswith(suffix):
+        # Eliminamos el sufijo del texto original (manteniendo el case si no era el sufijo)
+        s = s[:-len(suffix)]
+
+    return s.strip() # Devolver el resultado final limpio
+
+@st.cache_data 
+def clean_ciudad(ciudad): 
+    """Extrae la ciudad antes de la primera ','.""" 
+    if isinstance(ciudad, str) and ',' in ciudad: 
+        return ciudad.split(',', 1)[0].strip() 
+    return str(ciudad).strip()
+
+# --- FUNCIÓN DE SEGMENTACIÓN FIJA SOLICITADA (AJUSTADA A 5 DÍAS) (sin cambios) --- 
+@st.cache_data 
+def calculate_fixed_week(day): 
+    """ Calcula el número de segmento (1-7) basado en el día del mes, usando 5 días por segmento (1-5, 6-10, 11-15, 16-20, 21-25, 26-30, 31). """ 
+    if day <= 5: 
+        return 1 
+    elif day <= 10: 
+        return 2 
+    elif day <= 15: 
+        return 3 
+    elif day <= 20: 
+        return 4 
+    elif day <= 25: 
+        return 5 
+    elif day <= 30: 
+        return 6 
+    else: # 31 
+        return 7
+
+# --- FUNCIONES DE COMPARACIÓN --- 
+@st.cache_data 
+def prepare_comparison_data(df): 
+    # Mantiene la agrupación por [CIUDAD, TÉCNICO] para permitir filtrado por una sola ciudad
+    if df.empty: 
+        return pd.DataFrame()
+
+    df_temp = df.copy()
+
+    if COL_TIPO_ORDEN_KEY in df_temp.columns: 
+        tipo_orden = df_temp[COL_TIPO_ORDEN_KEY].astype(str)
+        df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
+        df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TECNICA', case=False, na=False).astype(int)
+        
+        # --- CORRECCIÓN DE DETECCIÓN DE TILDES CON REGEX ---
+        df_temp[COL_TIPO_MIGRACION] = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
+        df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        # --- FIN CORRECCIÓN ---
+    else: 
+        df_temp[COL_TIPO_INST] = 0 
+        df_temp[COL_TIPO_VISITA] = 0
+        df_temp[COL_TIPO_MIGRACION] = 0
+        df_temp[COL_TIPO_MANUAL] = 0
+        df_temp[COL_TIPO_CAMBIO_DIR] = 0
+
+    if COL_FILTRO_TECNICO not in df_temp.columns or COL_FILTRO_CIUDAD not in df_temp.columns: 
+        return pd.DataFrame()
+
+    # Se agrupa por CIUDAD y TÉCNICO
+    df_grouped = df_temp.groupby([COL_FILTRO_CIUDAD, COL_FILTRO_TECNICO]).agg( 
+        Total_Instalaciones=(COL_TIPO_INST, 'sum'), 
+        Total_Visitas=(COL_TIPO_VISITA, 'sum'),
+        # Agregamos las nuevas métricas 
+        Total_Migracion=(COL_TIPO_MIGRACION, 'sum'),
+        Total_TareaManual=(COL_TIPO_MANUAL, 'sum'),
+        Total_CambioDireccion=(COL_TIPO_CAMBIO_DIR, 'sum'),
+        # Columna Total_Tareas para cualquier uso futuro, incluyendo la vista
+        Total_Tareas=(COL_TIPO_INST, 'count') # Contar todas las filas en el grupo
+    ).reset_index()
+
+    df_grouped['Total_Instalaciones'] = df_grouped['Total_Instalaciones'].astype(int) 
+    df_grouped['Total_Visitas'] = df_grouped['Total_Visitas'].astype(int)
+    df_grouped['Total_Migracion'] = df_grouped['Total_Migracion'].astype(int)
+    df_grouped['Total_TareaManual'] = df_grouped['Total_TareaManual'].astype(int)
+    df_grouped['Total_CambioDireccion'] = df_grouped['Total_CambioDireccion'].astype(int)
+    df_grouped['Total_Tareas'] = df_grouped['Total_Tareas'].astype(int) # Asegurar el tipo
+
+    return df_grouped.sort_values(by=COL_FILTRO_TECNICO)
+
+@st.cache_data 
+def prepare_city_comparison_data(df): 
+    if df.empty: 
+        return pd.DataFrame()
+
+    df_temp = df.copy()
+
+    if COL_TIPO_ORDEN_KEY in df_temp.columns: 
+        tipo_orden = df_temp[COL_TIPO_ORDEN_KEY].astype(str)
+        df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
+        df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TECNICA', case=False, na=False).astype(int)
+        
+        # --- CORRECCIÓN DE DETECCIÓN DE TILDES CON REGEX ---
+        # Match 'MIGRACION' o 'MIGRACIÓN' (case-insensitive)
+        df_temp[COL_TIPO_MIGRACION] = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
+        # Match 'CAMBIO DE DIRECCION' o 'CAMBIO DE DIRECCIÓN' (case-insensitive)
+        df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        # --- FIN CORRECCIÓN ---
+    else: 
+        df_temp[COL_TIPO_INST] = 0 
+        df_temp[COL_TIPO_VISITA] = 0
+        df_temp[COL_TIPO_MIGRACION] = 0
+        df_temp[COL_TIPO_MANUAL] = 0
+        df_temp[COL_TIPO_CAMBIO_DIR] = 0
+
+    if COL_FILTRO_CIUDAD not in df_temp.columns: 
+        return pd.DataFrame()
+
+    # Se agrupa solo por CIUDAD 
+    df_grouped = df_temp.groupby([COL_FILTRO_CIUDAD]).agg( 
+        Total_Instalaciones=(COL_TIPO_INST, 'sum'), 
+        Total_Visitas=(COL_TIPO_VISITA, 'sum'),
+        # Agregamos las nuevas métricas 
+        Total_Migracion=(COL_TIPO_MIGRACION, 'sum'),
+        Total_TareaManual=(COL_TIPO_MANUAL, 'sum'),
+        Total_CambioDireccion=(COL_TIPO_CAMBIO_DIR, 'sum'),
+    ).reset_index()
+
+    df_grouped['Total_Instalaciones'] = df_grouped['Total_Instalaciones'].astype(int) 
+    df_grouped['Total_Visitas'] = df_grouped['Total_Visitas'].astype(int)
+    # Convertimos a int 
+    df_grouped['Total_Migracion'] = df_grouped['Total_Migracion'].astype(int)
+    df_grouped['Total_TareaManual'] = df_grouped['Total_TareaManual'].astype(int)
+    df_grouped['Total_CambioDireccion'] = df_grouped['Total_CambioDireccion'].astype(int)
+
+    return df_grouped.sort_values(by=COL_FILTRO_CIUDAD)
+
+# *************************************************************************************
+# --- INICIO DE LA CORRECCIÓN 1: Nueva función para agrupar por Fecha ---
+# *************************************************************************************
+@st.cache_data
+def prepare_date_comparison_data(df):
+    """Prepara datos para gráficos de rendimiento agrupados por FECHA."""
+    # COL_TEMP_DATETIME es la columna datetime (ej: _DATETIME_A)
+    if df.empty or COL_TEMP_DATETIME not in df.columns: 
+        return pd.DataFrame()
+
+    df_temp = df.copy()
+
+    # 1. Crear la columna de agrupación por DÍA (sin la hora)
+    # Usamos .dt.date para agrupar por día.
+    COL_FECHA_DIA_AGRUPACION = '_FECHA_DIA_'
+    df_temp[COL_FECHA_DIA_AGRUPACION] = df_temp[COL_TEMP_DATETIME].dt.date
+
+    # 2. Calcular las columnas de tipo de orden (igual que en las otras funciones)
+    if COL_TIPO_ORDEN_KEY in df_temp.columns: 
+        tipo_orden = df_temp[COL_TIPO_ORDEN_KEY].astype(str)
+        df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
+        df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TECNICA', case=False, na=False).astype(int)
+        df_temp[COL_TIPO_MIGRACION] = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
+        df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
+    else: 
+        df_temp[COL_TIPO_INST] = 0 
+        df_temp[COL_TIPO_VISITA] = 0
+        df_temp[COL_TIPO_MIGRACION] = 0
+        df_temp[COL_TIPO_MANUAL] = 0
+        df_temp[COL_TIPO_CAMBIO_DIR] = 0
+
+    # 3. Agrupar por la nueva columna de FECHA
+    df_grouped = df_temp.groupby([COL_FECHA_DIA_AGRUPACION]).agg( 
+        Total_Instalaciones=(COL_TIPO_INST, 'sum'), 
+        Total_Visitas=(COL_TIPO_VISITA, 'sum'),
+        Total_Migracion=(COL_TIPO_MIGRACION, 'sum'),
+        Total_TareaManual=(COL_TIPO_MANUAL, 'sum'),
+        Total_CambioDireccion=(COL_TIPO_CAMBIO_DIR, 'sum'),
+    ).reset_index()
+
+    # 4. Asegurar tipos de datos
+    df_grouped['Total_Instalaciones'] = df_grouped['Total_Instalaciones'].astype(int) 
+    df_grouped['Total_Visitas'] = df_grouped['Total_Visitas'].astype(int)
+    df_grouped['Total_Migracion'] = df_grouped['Total_Migracion'].astype(int)
+    df_grouped['Total_TareaManual'] = df_grouped['Total_TareaManual'].astype(int)
+    df_grouped['Total_CambioDireccion'] = df_grouped['Total_CambioDireccion'].astype(int)
+
+    # 5. Ordenar por fecha y devolver
+    return df_grouped.sort_values(by=COL_FECHA_DIA_AGRUPACION)
+# *************************************************************************************
+# --- FIN DE LA CORRECCIÓN 1 ---
+# *************************************************************************************
+
+
+# Función auxiliar para renderizar los gráficos de comparación (APILADOS VERTICALMENTE) (sin cambios)
+def render_comparison_charts_vertical(df_comparacion, x_col, title_prefix, is_city_view=False):
+    # Definición de los gráficos a renderizar
+    chart_configs = [
+        {'col_name': 'Total_Instalaciones', 'title': 'Instalaciones', 'color': '#4CAF50'},
+        {'col_name': 'Total_Visitas', 'title': 'Visitas', 'color': '#FF9800'},
+        # Nuevos gráficos
+        {'col_name': 'Total_Migracion', 'title': 'Migración', 'color': '#2196F3'},
+        {'col_name': 'Total_TareaManual', 'title': 'Tarea Manual', 'color': '#9C27B0'},
+        {'col_name': 'Total_CambioDireccion', 'title': 'Cambio de Dirección', 'color': '#F44336'}
+    ]
+
+    # El título del grupo de gráficos (Rendimiento por Técnico o Ubicación)
+    st.markdown(f"#### Rendimiento {title_prefix} (Base Dinámica)")
+    
+    bottom_margin = 60
+    CHART_HEIGHT = 200 
+    
+    # La configuración del eje X ahora rota las etiquetas siempre a -45 grados.
+    xaxis_config = {
+        'tickangle': -45, 
+        'tickfont': {'size': 9 if not is_city_view else 10} 
+    }
+
+    # CONFIGURACIÓN DE LAS LÍNEAS DE REJIDA VERTICALES DISCONTINUAS (PUNTEADAS) 
+    grid_config = {
+        'showgrid': True,
+        'gridcolor': '#cccccc',  # Un color gris claro para la rejilla
+        'griddash': 'dot'       # Tipo de línea: 'dot' (punteada)
+    }
+
+    # Iteramos sobre la nueva configuración de gráficos
+    for config in chart_configs:
+        with st.container(border=True):
+            st.markdown(f"##### {config['title']}")
+            
+            # Usamos la nueva altura
+            fig = px.line(
+                df_comparacion, 
+                x=x_col, 
+                y=config['col_name'], 
+                markers=True, 
+                text=config['col_name'], 
+                height=CHART_HEIGHT,
+                color_discrete_sequence=[config['color']]
+            ) 
+            
+            # Mostrar el texto permanentemente encima del punto
+            fig.update_traces(textposition='top center') 
+            
+            fig.update_layout(
+                xaxis_title=None, 
+                yaxis_title='Total', 
+                # Margen inferior corregido a 60px
+                margin=dict(t=20,b=bottom_margin,l=10,r=10), 
+                xaxis=xaxis_config # Aplicamos la configuración rotada
+            )
+            # Aplicamos la configuración de rejilla vertical
+            fig.update_xaxes(**grid_config)
+            # Desactivamos las líneas horizontales (rejilla Y)
+            fig.update_yaxes(showgrid=False) 
+            st.plotly_chart(fig, use_container_width=True)
+
+
+# --- LECTURA DE USUARIOS (sin cambios) ---
+try: 
+    usuarios_df = pd.read_excel(USUARIOS_EXCEL) 
+    usuarios_df['Usuario'] = usuarios_df['Usuario'].astype(str).str.strip() 
+    usuarios_df['Contraseña'] = usuarios_df['Contraseña'].astype(str).str.strip() 
+    usuarios_df['Rol'] = usuarios_df['Rol'].astype(str).str.strip() 
+except FileNotFoundError: 
+    usuarios_data = { 
+        'Usuario': ['admin', 'user'], 
+        'Contraseña': ['12345', 'password'], 
+        'Rol': ['admin', 'analyst'] 
+    } 
+    usuarios_df = pd.DataFrame(usuarios_data) 
+
+# --- SESSION STATE (sin cambios) --- 
+if 'login' not in st.session_state: 
+    st.session_state.login = False 
+if 'rol' not in st.session_state: 
+    st.session_state.rol = None 
+if 'usuario' not in st.session_state: 
+    st.session_state.usuario = None
+
+# --- LOGIN / INTERFAZ PRINCIPAL (con imagen) (sin cambios) --- 
+if not st.session_state.login: 
+    
+    # MODIFICACIÓN APLICADA: Cabecera con Imagen y Título 
+    # Definir columnas para la cabecera de Login (Imagen, Título, Espaciador)
+    # Se usan las mismas proporciones relativas para imagen y título que en el dashboard: [0.8, 3.8, ...]
+    col_img_login, col_title_login, col_spacer_login = st.columns([0.8, 3.8, 6.2]) 
+
+    # Columna para la Imagen de Login
+    with col_img_login:
+        IMAGE_PATH = "logge.png" 
+        if os.path.exists(IMAGE_PATH):
+            # Carga la imagen con el mismo ancho (100px)
+            st.image(IMAGE_PATH, width=100) 
+        else:
+            # Espacio vacío si la imagen no se encuentra, para mantener la alineación
+            st.markdown("&nbsp;") 
+
+    # Columna para el Título de Login
+    with col_title_login:
+        # Usar el estilo para asegurar la alineación vertical con la imagen
+        st.markdown("<h2 style='margin-top:0.5rem; margin-left: -0.5rem;'>📊 Estadístico Isertel</h2>", unsafe_allow_html=True) 
+
+    # Subtítulo de bienvenida (debajo de la cabecera)
+    st.subheader("Inicia sesión para acceder")
+
+    # Definir las columnas para el formulario de login (centrado)
+    col_login_spacer_l, col_login_box, col_login_spacer_r = st.columns([1, 2, 1])
+
+    with col_login_box: 
+        usuario_input = st.text_input("Usuario") 
+        contrasena_input = st.text_input("Contraseña", type="password")
+
+        if st.button("Iniciar sesión", use_container_width=True): 
+            user_row = usuarios_df[
+                (usuarios_df["Usuario"].str.lower() == usuario_input.strip().lower()) & 
+                (usuarios_df["Contraseña"] == contrasena_input.strip()) 
+            ] 
+            if not user_row.empty: 
+                st.session_state.login = True 
+                st.session_state.rol = user_row.iloc[0]["Rol"] 
+                st.session_state.usuario = usuario_input.strip() 
+                st.rerun() 
+            else: 
                 st.error("Usuario o contraseña incorrectos")
 
 else: 
