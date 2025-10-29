@@ -864,7 +864,7 @@ else:
                         filtro_ciudad = st.multiselect(
                             f"**{COL_CIUDAD_DESCRIPTIVA}**:", 
                             options=opciones_ciudad, 
-                            default=filtro_ciudad_actual, 
+                            default=[], 
                             key='multiselect_ubicacion',
                             placeholder="Ciudad"
                         )
@@ -961,7 +961,7 @@ else:
                     st.markdown("#### 🎯 Métricas Clave (KPIs)") # Título para la caja de métricas
                     
                     # 💥 Redefinición de 6 columnas para MÉTRICAS (Se eliminó col_m_total_abs) 💥
-                    col_m_inst_abs, col_m_vis_abs, col_m_mig_abs, col_m_man_abs, col_m_cd_abs, col_m_sat_abs = st.columns(
+                    col_m_sat_abs, col_m_inst_abs, col_m_vis_abs, col_m_mig_abs, col_m_man_abs, col_m_cd_abs = st.columns(
                         [1.0, 1.0, 1.0, 1.0, 1.0, 1.0] # Ahora son 6 columnas en total
                     )
 
@@ -1018,6 +1018,12 @@ else:
                     # --- RENDERIZADO DE MÉTRICAS COMPACTAS (Una sola fila) --- 
                     
                     # 💥 Columna para Total Órdenes (Absoluto - ELIMINADA) 💥
+
+                                        # Columna para Total de la Base seleccionada (Satisfactoria, Insatisfactoria, etc.)
+                    with col_m_sat_abs: 
+                        st.markdown('<div class="metric-compact-container-total">', unsafe_allow_html=True) 
+                        st.metric(label=etiqueta_total_base, value=f"{total_base:,}") 
+                        st.markdown('</div>', unsafe_allow_html=True)
                     
                     # Columna para Instalaciones (Absoluto)
                     with col_m_inst_abs: 
@@ -1049,11 +1055,7 @@ else:
                         st.metric(label=f"Cambio Dir.{etiqueta_estado}", value=f"{total_cambio_direccion:,}") 
                         st.markdown('</div>', unsafe_allow_html=True)
                         
-                    # Columna para Total de la Base seleccionada (Satisfactoria, Insatisfactoria, etc.)
-                    with col_m_sat_abs: 
-                        st.markdown('<div class="metric-compact-container-total">', unsafe_allow_html=True) 
-                        st.metric(label=etiqueta_total_base, value=f"{total_base:,}") 
-                        st.markdown('</div>', unsafe_allow_html=True)
+
                     
                 # --- FIN DEL PANEL DE CONTROL COMPACTO (2/2): MÉTRICAS ---
 
@@ -1099,11 +1101,13 @@ else:
                     col_tecnico = FINAL_RENAMING_MAP['C'] 
                     col_cliente = FINAL_RENAMING_MAP['E'] 
                     col_contrato = FINAL_RENAMING_MAP['D'] 
+                    col_ubicacion = FINAL_RENAMING_MAP['B']
                     
                     
                     # Columnas por defecto (ORDEN SOLICITADO: Fecha, Técnico, Tarea, Contrato, Cliente)
                     default_cols_raw = [
                         col_fecha_finalizacion,
+                        col_ubicacion,
                         col_tecnico,
                         col_tarea, 
                         col_contrato,
