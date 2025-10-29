@@ -324,6 +324,61 @@ def prepare_city_comparison_data(df):
 
     return df_grouped.sort_values(by=COL_FILTRO_CIUDAD)
 
+# *************************************************************************************
+# --- INICIO DE LA CORRECCIÓN 1: Nueva función para agrupar por Fecha ---
+# *************************************************************************************
+@st.cache_data
+def prepare_date_comparison_data(df):
+    """Prepara datos para gráficos de rendimiento agrupados por FECHA."""
+    # COL_TEMP_DATETIME es la columna datetime (ej: _DATETIME_A)
+    if df.empty or COL_TEMP_DATETIME not in df.columns: 
+        return pd.DataFrame()
+
+    df_temp = df.copy()
+
+    # 1. Crear la columna de agrupación por DÍA (sin la hora)
+    # Usamos .dt.date para agrupar por día.
+    COL_FECHA_DIA_AGRUPACION = '_FECHA_DIA_'
+    df_temp[COL_FECHA_DIA_AGRUPACION] = df_temp[COL_TEMP_DATETIME].dt.date
+
+    # 2. Calcular las columnas de tipo de orden (igual que en las otras funciones)
+    if COL_TIPO_ORDEN_KEY in df_temp.columns: 
+        tipo_orden = df_temp[COL_TIPO_ORDEN_KEY].astype(str)
+        df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
+        df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TECNICA', case=False, na=False).astype(int)
+        df_temp[COL_TIPO_MIGRACION] = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
+        df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
+    else: 
+        df_temp[COL_TIPO_INST] = 0 
+        df_temp[COL_TIPO_VISITA] = 0
+        df_temp[COL_TIPO_MIGRACION] = 0
+        df_temp[COL_TIPO_MANUAL] = 0
+        df_temp[COL_TIPO_CAMBIO_DIR] = 0
+
+    # 3. Agrupar por la nueva columna de FECHA
+    df_grouped = df_temp.groupby([COL_FECHA_DIA_AGRUPACION]).agg( 
+        Total_Instalaciones=(COL_TIPO_INST, 'sum'), 
+        Total_Visitas=(COL_TIPO_VISITA, 'sum'),
+        Total_Migracion=(COL_TIPO_MIGRACION, 'sum'),
+        Total_TareaManual=(COL_TIPO_MANUAL, 'sum'),
+        Total_CambioDireccion=(COL_TIPO_CAMBIO_DIR, 'sum'),
+    ).reset_index()
+
+    # 4. Asegurar tipos de datos
+    df_grouped['Total_Instalaciones'] = df_grouped['Total_Instalaciones'].astype(int) 
+    df_grouped['Total_Visitas'] = df_grouped['Total_Visitas'].astype(int)
+    df_grouped['Total_Migracion'] = df_grouped['Total_Migracion'].astype(int)
+    df_grouped['Total_TareaManual'] = df_grouped['Total_TareaManual'].astype(int)
+    df_grouped['Total_CambioDireccion'] = df_grouped['Total_CambioDireccion'].astype(int)
+
+    # 5. Ordenar por fecha y devolver
+    return df_grouped.sort_values(by=COL_FECHA_DIA_AGRUPACION)
+# *************************************************************************************
+# --- FIN DE LA CORRECCIÓN 1 ---
+# *************************************************************************************
+
+
 # Función auxiliar para renderizar los gráficos de comparación (APILADOS VERTICALMENTE) (sin cambios)
 def render_comparison_charts_vertical(df_comparacion, x_col, title_prefix, is_city_view=False):
     # Definición de los gráficos a renderizar
@@ -1340,12 +1395,21 @@ else:
                         is_single_technician = len(filtro_tecnico) == 1
                         is_single_city = len(filtro_ciudad) == 1
 
+                        # *************************************************************************************
+                        # --- INICIO DE LA CORRECCIÓN 2: Modificación de la lógica de renderizado ---
+                        # *************************************************************************************
                         if is_single_technician:
-                            # CASO 1: Un solo técnico seleccionado -> Mostrar distribución por CIUDAD
-                            df_comparacion_view = prepare_city_comparison_data(datos_filtrados) # Agrupación por Ciudad
-                            x_column_to_plot = COL_FILTRO_CIUDAD # Eje X: Ciudad
-                            title = f"por Ubicación para Técnico: **{filtro_tecnico[0]}**"
-                            is_city_view = True
+                            # CASO 1: Un solo técnico seleccionado -> Mostrar distribución por DÍA
+                            # (datos_filtrados ya contiene solo los datos de ese técnico)
+                            df_comparacion_view = prepare_date_comparison_data(datos_filtrados) # Agrupación por Fecha
+                            
+                            # La nueva función 'prepare_date_comparison_data' crea la columna '_FECHA_DIA_'
+                            x_column_to_plot = '_FECHA_DIA_' 
+                            title = f"por Día para Técnico: **{filtro_tecnico[0]}**"
+                            
+                            # Usamos 'is_city_view = False' para que las etiquetas del eje X (fechas)
+                            # usen el tamaño de fuente más pequeño (9) definido en 'render_comparison_charts_vertical'.
+                            is_city_view = False
                             
                         elif is_single_city:
                             # CASO 2: Varios técnicos, pero una sola ciudad -> Mostrar por TÉCNICO
@@ -1361,6 +1425,9 @@ else:
                             x_column_to_plot = COL_FILTRO_CIUDAD # Eje X: Ciudad
                             title = "por Ubicación"
                             is_city_view = True
+                        # *************************************************************************************
+                        # --- FIN DE LA CORRECCIÓN 2 ---
+                        # *************************************************************************************
 
                         
                         # --- RENDERIZADO FINAL ---
