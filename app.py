@@ -324,63 +324,6 @@ def prepare_city_comparison_data(df):
 
     return df_grouped.sort_values(by=COL_FILTRO_CIUDAD)
 
-
-
-
-
-# *************************************************************************************
-# --- INICIO DE LA CORRECCIÓN DEL USUARIO: SELECT ALL PARA TÉCNICOS ---
-# *************************************************************************************
-
-def st_multiselect_with_all_technicians(col, label, options, key):
-    """
-    Wrapper para st.multiselect que añade una opción 'Seleccionar Todos'
-    a las opciones del técnico. Estas opciones ya están filtradas por ciudad.
-    Si se selecciona 'Seleccionar Todos', devuelve todas las opciones reales disponibles.
-    """
-    ALL_OPTION = "✨ Seleccionar Todos"
-    
-    # 1. Preparamos las opciones, incluyendo la opción 'Seleccionar Todos' al inicio
-    display_options = [ALL_OPTION] + options
-
-    with col:
-        # Si no hay opciones disponibles (ej. no hay técnicos en las ciudades seleccionadas)
-        if not options:
-            st.markdown(f"**{label}**")
-            st.info("No hay técnicos disponibles con los filtros de ubicación aplicados.", icon="🧑‍🔧")
-            return []
-            
-        # 2. Creamos el multiselect
-        selected = st.multiselect(
-            label=label,
-            options=display_options,
-            key=key
-        )
-
-    # 3. Lógica de "Seleccionar Todos"
-    if ALL_OPTION in selected:
-        # Si la opción mágica está seleccionada, devolvemos todas las opciones reales
-        return options
-    else:
-        # Si no, devolvemos solo las opciones seleccionadas (excluyendo ALL_OPTION si se hubiera usado)
-        return [s for s in selected if s != ALL_OPTION]
-
-# *************************************************************************************
-# --- FIN DE LA CORRECCIÓN DEL USUARIO ---
-# *************************************************************************************
-
-
-
-
-
-
-
-
-
-
-
-
-
 # *************************************************************************************
 # --- INICIO DE LA CORRECCIÓN 1: Nueva función para agrupar por Fecha ---
 # *************************************************************************************
@@ -926,14 +869,14 @@ else:
                             placeholder="Ciudad"
                         )
 
-                        with col_tec:
-                            # 💥 MODIFICACIÓN: Usar la nueva función auxiliar para incluir "Seleccionar Todos"
-                            filtro_tecnico = st_multiselect_with_all_technicians(
-                                col_tec, 
-                                COL_TECNICO_DESCRIPTIVA,
-                                options=opciones_tecnico,
-                                key='filter_tecnico'
-                            )
+                    with col_tec:
+                        filtro_tecnico = st.multiselect(
+                            f"**{COL_TECNICO_DESCRIPTIVA}**:", 
+                            options=opciones_tecnico, 
+                            default=filtro_tecnico_actual, 
+                            key='multiselect_tecnico',
+                            placeholder="Código"
+                        )
 
                     with col_est:
                         filtro_estado = st.multiselect(
@@ -1456,29 +1399,39 @@ else:
                         is_single_technician = len(filtro_tecnico) == 1
                         is_single_city = len(filtro_ciudad) == 1
 
-                    # *************************************************************************************
-                    # --- INICIO DE LA CORRECCIÓN 2: Modificación de la lógica de renderizado ---
-                    # *************************************************************************************
-                    # La nueva lógica es: 
-                    # 1. Técnico Único y Ciudad Única/Cero -> Ver por DÍA
-                    # 2. Cualquier otro caso (Múltiples técnicos O Múltiples ciudades) -> Ver por CIUDAD
-                    if is_single_technician and len(filtro_ciudad) <= 1:
-                        # CASO 1: Un solo técnico seleccionado y 0 o 1 Ciudad -> Mostrar distribución por DÍA
-                        df_comparacion_view = prepare_date_comparison_data(datos_filtrados)
-                        x_column_to_plot = '_FECHA_DIA_' 
-                        title = f"para {filtro_tecnico[0]} (rendimiento temporal)"
-                        is_city_view = False
-                        
-                    else: 
-                        # CASO 2: Múltiples técnicos O Múltiples ciudades. -> Mostrar por CIUDAD
-                        df_comparacion_view = prepare_city_comparison_data(datos_filtrados) 
-                        x_column_to_plot = COL_FILTRO_CIUDAD 
-                        title = "por Ubicación (total de tareas por ciudad)"
-                        is_city_view = True
-
-                    # *************************************************************************************
-                    # --- FIN DE LA CORRECCIÓN 2 ---
-                    # *************************************************************************************
+                        # *************************************************************************************
+                        # --- INICIO DE LA CORRECCIÓN 2: Modificación de la lógica de renderizado ---
+                        # *************************************************************************************
+                        if is_single_technician:
+                            # CASO 1: Un solo técnico seleccionado -> Mostrar distribución por DÍA
+                            # (datos_filtrados ya contiene solo los datos de ese técnico)
+                            df_comparacion_view = prepare_date_comparison_data(datos_filtrados) # Agrupación por Fecha
+                            
+                            # La nueva función 'prepare_date_comparison_data' crea la columna '_FECHA_DIA_'
+                            x_column_to_plot = '_FECHA_DIA_' 
+                            title = f"por Día para Técnico: **{filtro_tecnico[0]}**"
+                            
+                            # Usamos 'is_city_view = False' para que las etiquetas del eje X (fechas)
+                            # usen el tamaño de fuente más pequeño (9) definido en 'render_comparison_charts_vertical'.
+                            is_city_view = False
+                            
+                        elif is_single_city:
+                            # CASO 2: Varios técnicos, pero una sola ciudad -> Mostrar por TÉCNICO
+                            # Nota: prepare_comparison_data agrupa por Ciudad/Técnico.
+                            df_comparacion_view = prepare_comparison_data(datos_filtrados)
+                            x_column_to_plot = COL_FILTRO_TECNICO # Eje X: Técnico
+                            title = f"por Técnico en: **{filtro_ciudad[0]}**"
+                            is_city_view = False
+                            
+                        else:
+                            # CASO 3: Múltiples técnicos y múltiples ciudades / Sin filtros -> Mostrar por CIUDAD (Vista general)
+                            df_comparacion_view = prepare_city_comparison_data(datos_filtrados) # Agrupación por Ciudad
+                            x_column_to_plot = COL_FILTRO_CIUDAD # Eje X: Ciudad
+                            title = "por Ubicación"
+                            is_city_view = True
+                        # *************************************************************************************
+                        # --- FIN DE LA CORRECCIÓN 2 ---
+                        # *************************************************************************************
 
                         
                         # --- RENDERIZADO FINAL ---
