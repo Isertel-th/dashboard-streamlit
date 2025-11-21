@@ -226,7 +226,7 @@ def calculate_fixed_week(day):
     else: # 31 
         return 7
 
-# --- FUNCIONES DE COMPARACIÓN --- 
+# --- FUNCIONES DE COMPARACIÓN (CORREGIDAS PARA LEER COLUMNA J) --- 
 @st.cache_data 
 def prepare_comparison_data(df): 
     # Mantiene la agrupación por [CIUDAD, TÉCNICO] para permitir filtrado por una sola ciudad
@@ -240,11 +240,18 @@ def prepare_comparison_data(df):
         df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
         df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TECNICA', case=False, na=False).astype(int)
         
-        # --- CORRECCIÓN DE DETECCIÓN DE TILDES CON REGEX ---
-        df_temp[COL_TIPO_MIGRACION] = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        # --- CORRECCIÓN MIGRACIONES (GRÁFICOS): Leer Columna I O Columna J ---
+        mask_mig_orden = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)
+        mask_mig_manual = False
+        if COL_TIPO_MANUAL_KEY in df_temp.columns:
+            mask_mig_manual = df_temp[COL_TIPO_MANUAL_KEY].astype(str).str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)
+        
+        # Combinar máscaras: es migración si está en Orden O en Manual
+        df_temp[COL_TIPO_MIGRACION] = (mask_mig_orden | mask_mig_manual).astype(int)
+        # -------------------------------------------------------------------
+
         df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
         df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
-        # --- FIN CORRECCIÓN ---
     else: 
         df_temp[COL_TIPO_INST] = 0 
         df_temp[COL_TIPO_VISITA] = 0
@@ -288,13 +295,18 @@ def prepare_city_comparison_data(df):
         df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
         df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TECNICA', case=False, na=False).astype(int)
         
-        # --- CORRECCIÓN DE DETECCIÓN DE TILDES CON REGEX ---
-        # Match 'MIGRACION' o 'MIGRACIÓN' (case-insensitive)
-        df_temp[COL_TIPO_MIGRACION] = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        # --- CORRECCIÓN MIGRACIONES (GRÁFICOS CIUDAD): Leer Columna I O Columna J ---
+        mask_mig_orden = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)
+        mask_mig_manual = False
+        if COL_TIPO_MANUAL_KEY in df_temp.columns:
+            mask_mig_manual = df_temp[COL_TIPO_MANUAL_KEY].astype(str).str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)
+        
+        df_temp[COL_TIPO_MIGRACION] = (mask_mig_orden | mask_mig_manual).astype(int)
+        # -------------------------------------------------------------------
+
         df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
         # Match 'CAMBIO DE DIRECCION' o 'CAMBIO DE DIRECCIÓN' (case-insensitive)
         df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
-        # --- FIN CORRECCIÓN ---
     else: 
         df_temp[COL_TIPO_INST] = 0 
         df_temp[COL_TIPO_VISITA] = 0
@@ -341,7 +353,16 @@ def prepare_technician_comparison_data(df):
         tipo_orden = df_temp[COL_TIPO_ORDEN_KEY].astype(str)
         df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
         df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TECNICA', case=False, na=False).astype(int)
-        df_temp[COL_TIPO_MIGRACION] = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        
+        # --- CORRECCIÓN MIGRACIONES (GRÁFICOS TÉCNICO): Leer Columna I O Columna J ---
+        mask_mig_orden = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)
+        mask_mig_manual = False
+        if COL_TIPO_MANUAL_KEY in df_temp.columns:
+            mask_mig_manual = df_temp[COL_TIPO_MANUAL_KEY].astype(str).str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)
+        
+        df_temp[COL_TIPO_MIGRACION] = (mask_mig_orden | mask_mig_manual).astype(int)
+        # -------------------------------------------------------------------
+
         df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
         df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
     else: 
@@ -444,7 +465,16 @@ def prepare_date_comparison_data(df):
         tipo_orden = df_temp[COL_TIPO_ORDEN_KEY].astype(str)
         df_temp[COL_TIPO_INST] = tipo_orden.str.contains('INSTALACION', case=False, na=False).astype(int) 
         df_temp[COL_TIPO_VISITA] = tipo_orden.str.contains('VISITA TECNICA', case=False, na=False).astype(int)
-        df_temp[COL_TIPO_MIGRACION] = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        
+        # --- CORRECCIÓN MIGRACIONES (GRÁFICOS FECHA): Leer Columna I O Columna J ---
+        mask_mig_orden = tipo_orden.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)
+        mask_mig_manual = False
+        if COL_TIPO_MANUAL_KEY in df_temp.columns:
+             mask_mig_manual = df_temp[COL_TIPO_MANUAL_KEY].astype(str).str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)
+        
+        df_temp[COL_TIPO_MIGRACION] = (mask_mig_orden | mask_mig_manual).astype(int)
+        # -------------------------------------------------------------------
+
         df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
         df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
     else: 
@@ -1102,10 +1132,19 @@ else:
                     if COL_TIPO_ORDEN_KEY in datos_base_metricas.columns: 
                         tipo_orden_base = datos_base_metricas[COL_TIPO_ORDEN_KEY].astype(str)
                         
-                        # --- CÁLCULO DE MÉTRICAS CON REGEX (TIPOS DE ORDEN) ---
+                        # --- CÁLCULO DE MÉTRICAS CON REGEX (TIPOS DE ORDEN) CORREGIDO ---
                         total_instalaciones = len(datos_base_metricas[tipo_orden_base.str.contains('INSTALACION', case=False, na=False)]) 
                         total_visitas_tecnicas = len(datos_base_metricas[tipo_orden_base.str.contains('VISITA TECNICA', case=False, na=False)])
-                        total_migracion = len(datos_base_metricas[tipo_orden_base.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)])
+                        
+                        # CORRECCION MIGRACION KPI: LEER COLUMNA I o COLUMNA J
+                        mask_migracion_orden = tipo_orden_base.str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)
+                        mask_migracion_manual = False
+                        if COL_TIPO_MANUAL_KEY in datos_base_metricas.columns:
+                            mask_migracion_manual = datos_base_metricas[COL_TIPO_MANUAL_KEY].astype(str).str.contains(r'MIGRACI[ÓO]N', case=False, na=False, regex=True)
+                        
+                        total_migracion = len(datos_base_metricas[mask_migracion_orden | mask_migracion_manual])
+                        # ----------------------------------------------------------
+
                         total_tarea_manual = len(datos_base_metricas[tipo_orden_base.str.contains('TAREA MANUAL', case=False, na=False)])
                         total_cambio_direccion = len(datos_base_metricas[tipo_orden_base.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True)])
                         # --- FIN CÁLCULO REGEX ---
@@ -1342,13 +1381,6 @@ else:
                                 st.info(f"No hay datos de tareas o la columna '{COL_AGRUPACION_KEY}' (TECNOLOGÍA) no fue encontrada en los datos filtrados.")
 
 
-
-
-
-# [ ... CÓDIGO ANTERIOR EN app.py HASTA LA SECCIÓN DEL GRÁFICO DE PASTEL ... ]
-# ... (código hasta el bloque 'with col_graphs_der:')
-# [ ... ]
-
 # --- GRÁFICO CONDICIONAL: TOP 5 TÉCNICOS / DISTRIBUCIÓN POR TÉCNICO / DISTRIBUCIÓN GENERAL ---
                     with col_graphs_der: 
                         with st.container(border=True): 
@@ -1479,8 +1511,6 @@ else:
                                 else: 
                                     st.info("Datos insuficientes para la Distribución por Ubicación con la base seleccionada.")
 
-# [ ... CÓDIGO RESTANTE EN app.py ... ]
-
 
                     
                     
@@ -1565,4 +1595,3 @@ else:
                             ) 
                         else:
                             st.info("No hay datos de rendimiento con los filtros aplicados para esta visualización.")
-                    # ********************************************************************************************
