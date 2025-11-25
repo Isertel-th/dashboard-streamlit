@@ -942,6 +942,8 @@ else:
                     filtro_tipo_manual_actual = st.session_state.get('multiselect_tipo_manual', [])
 
                     # --- DEFINICIÓN DE DOMINIOS DINÁMICOS (CASCADA) ---
+                    # 💥 CORRECCIÓN CRÍTICA: AGREGAR EL FILTRO DE 'TIPO MANUAL' A LA CASCADA DE TODOS LOS DOMINIOS 💥
+                    # Esto asegura que si seleccionas "Auditoria", los técnicos y ciudades se reduzcan SOLO a los que tienen Auditorías.
                     
                     # Dominios base para los cálculos
                     df_domain_base = df_all.copy()
@@ -951,6 +953,9 @@ else:
                     df_domain_ciu = apply_filter(df_domain_ciu, COL_FILTRO_ESTADO, filtro_estado_actual)
                     df_domain_ciu = apply_filter(df_domain_ciu, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
                     df_domain_ciu = apply_filter(df_domain_ciu, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual) 
+                    # --- NUEVO FILTRO AGREGADO ---
+                    df_domain_ciu = apply_filter(df_domain_ciu, COL_FILTRO_TIPO_MANUAL, filtro_tipo_manual_actual)
+                    # -----------------------------
                     opciones_ciudad = get_multiselect_options(df_domain_ciu, COL_FILTRO_CIUDAD)
 
                     # Dominio TÉCNICO
@@ -958,28 +963,43 @@ else:
                     df_domain_tec = apply_filter(df_domain_tec, COL_FILTRO_ESTADO, filtro_estado_actual)
                     df_domain_tec = apply_filter(df_domain_tec, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
                     df_domain_tec = apply_filter(df_domain_tec, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual) 
+                    # --- NUEVO FILTRO AGREGADO ---
+                    # AQUÍ ESTABA EL PROBLEMA: Ahora se filtran los técnicos por el tipo de tarea manual seleccionada
+                    df_domain_tec = apply_filter(df_domain_tec, COL_FILTRO_TIPO_MANUAL, filtro_tipo_manual_actual)
+                    # -----------------------------
                     opciones_tecnico = get_multiselect_options(df_domain_tec, COL_FILTRO_TECNICO)
 
                     # Dominio ESTADO
                     df_domain_est = apply_filter(df_domain_base, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
                     df_domain_est = apply_filter(df_domain_est, COL_FILTRO_TECNICO, filtro_tecnico_actual)
                     df_domain_est = apply_filter(df_domain_est, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
-                    df_domain_est = apply_filter(df_domain_est, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual) 
+                    df_domain_est = apply_filter(df_domain_est, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual)
+                    # --- NUEVO FILTRO AGREGADO ---
+                    df_domain_est = apply_filter(df_domain_est, COL_FILTRO_TIPO_MANUAL, filtro_tipo_manual_actual)
+                    # ----------------------------- 
                     opciones_estado = get_multiselect_options(df_domain_est, COL_FILTRO_ESTADO)
 
                     # Dominio TIPO DE ORDEN 
                     df_domain_tipo_orden = apply_filter(df_domain_base, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
                     df_domain_tipo_orden = apply_filter(df_domain_tipo_orden, COL_FILTRO_TECNICO, filtro_tecnico_actual)
                     df_domain_tipo_orden = apply_filter(df_domain_tipo_orden, COL_FILTRO_ESTADO, filtro_estado_actual)
-                    df_domain_tipo_orden = apply_filter(df_domain_tipo_orden, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual) 
+                    df_domain_tipo_orden = apply_filter(df_domain_tipo_orden, COL_FILTRO_TECNOLOGIA, filtro_tecnologia_actual)
+                    # --- NUEVO FILTRO AGREGADO ---
+                    df_domain_tipo_orden = apply_filter(df_domain_tipo_orden, COL_FILTRO_TIPO_MANUAL, filtro_tipo_manual_actual)
+                    # ----------------------------- 
                     opciones_tipo_orden = get_multiselect_options(df_domain_tipo_orden, COL_FILTRO_TIPO_ORDEN) 
 
                     # Dominio TECNOLOGÍA 
                     df_domain_tecnologia = apply_filter(df_domain_base, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
                     df_domain_tecnologia = apply_filter(df_domain_tecnologia, COL_FILTRO_TECNICO, filtro_tecnico_actual)
                     df_domain_tecnologia = apply_filter(df_domain_tecnologia, COL_FILTRO_ESTADO, filtro_estado_actual)
-                    df_domain_tecnologia = apply_filter(df_domain_tecnologia, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
+                    df_domain_tecnologia = apply_filter(df_domain_tecnologia, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual)
+                    # --- NUEVO FILTRO AGREGADO ---
+                    df_domain_tecnologia = apply_filter(df_domain_tecnologia, COL_FILTRO_TIPO_MANUAL, filtro_tipo_manual_actual)
+                    # ----------------------------- 
                     opciones_tecnologia = get_multiselect_options(df_domain_tecnologia, COL_FILTRO_TECNOLOGIA) 
+                    
+                    # Dominio TIPO MANUAL (Este se autogestiona con los demás, no se filtra a sí mismo para no perder opciones)
                     df_domain_tipo_manual = apply_filter(df_domain_base, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
                     df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_TECNICO, filtro_tecnico_actual)
                     df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_ESTADO, filtro_estado_actual)
@@ -1039,7 +1059,7 @@ else:
                         # Lógica: Solo mostramos el filtro J si 'TAREA MANUAL' está seleccionado en el filtro I.
                         if 'TAREA MANUAL' in filtro_tipo_orden:
                                 
-                                # Calcular dominio para el filtro condicional
+                                # Calcular dominio para el filtro condicional (redundante con el de arriba pero necesario para refresco local)
                                 df_domain_tipo_manual = apply_filter(df_domain_base, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
                                 df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_TECNICO, filtro_tecnico_actual)
                                 df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_ESTADO, filtro_estado_actual)
