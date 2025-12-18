@@ -231,12 +231,18 @@ def prepare_technician_comparison_data(df):
 def st_multiselect_with_all_technicians(col, label, options, key):
     ALL_OPTION = "✨ Seleccionar Todos"
     display_options = [ALL_OPTION] + options
+    
+    # Asegurarse de que el valor actual en session_state sea válido para las nuevas opciones
+    current_selection = st.session_state.get(key, [])
+    valid_selection = [v for v in current_selection if v in display_options]
+    
     with col:
         if not options:
             st.markdown(f"**{label}**")
             st.info("No hay técnicos disponibles.", icon="🧑‍🔧")
             return []
-        selected = st.multiselect(label=label, options=display_options, key=key)
+        selected = st.multiselect(label=label, options=display_options, key=key, default=valid_selection)
+    
     if ALL_OPTION in selected: return options
     else: return [s for s in selected if s != ALL_OPTION]
 
@@ -519,7 +525,7 @@ else:
                     return df[df[col_key_filtro].astype(str).isin(selected_options)]
                     
                 # -----------------------------------------------------------------------------
-                # --- PANEL DE CONTROL: FILTROS --- 
+                # --- PANEL DE CONTROL: FILTROS (Lógica de Filtro Cruzado / Cross-Filtering) --- 
                 # -----------------------------------------------------------------------------
                 with st.container(border=True):
                     st.markdown("#### ⚙️ Filtros de Segmentación") 
@@ -539,81 +545,106 @@ else:
                     if date_from > date_to: 
                         st.error("⚠️ Fecha 'Desde' mayor que 'Hasta'."); st.stop()
                     
-                    # FECHAS: Calculamos la máscara, pero NO aplicamos a la base de opciones todavía
+                    # Filtro inicial de fecha para calcular el dominio de opciones
                     filtro_inicio = pd.to_datetime(date_from) 
                     filtro_fin = pd.to_datetime(date_to) + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
-                    
-                    # --- GENERACIÓN DE OPCIONES DE FILTRO (Usamos TODA la historia, no solo la fecha seleccionada) ---
-                    # Esto evita que los filtros se limpien al cambiar fechas
-                    df_options_source = datos_base_limpia.copy() 
-                    
-                    filtro_ciudad_actual = st.session_state.get('multiselect_ubicacion', []) 
-                    filtro_tecnico_actual = st.session_state.get('multiselect_tecnico', [])
-                    filtro_estado_actual = st.session_state.get('multiselect_estado', []) 
-                    filtro_tipo_orden_actual = st.session_state.get('multiselect_tipo_orden', []) 
-                    filtro_tecnologia_actual = st.session_state.get('multiselect_tecnologia', []) 
+                    df_base_fecha = datos_base_limpia[
+                        (datos_base_limpia[COL_TEMP_DATETIME] >= filtro_inicio) & 
+                        (datos_base_limpia[COL_TEMP_DATETIME] <= filtro_fin)
+                    ].copy()
 
-                    # 1. CIUDAD (Independiente)
-                    opciones_ciudad = get_multiselect_options(df_options_source, COL_FILTRO_CIUDAD)
+                    # --- LÓGICA DE FILTRO CRUZADO ---
+                    # Para que los filtros se influyan entre sí, las opciones de cada filtro se calculan 
+                    # aplicando todos los filtros EXCEPTO el filtro que se está calculando.
 
-                    # 2. TÉCNICO (Depende de Ciudad, NO de Tipo Orden para permitir multi-selección)
-                    df_domain_tec = apply_filter(df_options_source, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
-                    opciones_tecnico = get_multiselect_options(df_domain_tec, COL_FILTRO_TECNICO)
+                    # Capturamos selecciones actuales de session_state (si existen)
+                    s_ciu = st.session_state.get('multiselect_ubicacion', [])
+                    s_tec = st.session_state.get('filter_tecnico', [])
+                    s_est = st.session_state.get('multiselect_estado', [])
+                    s_tip = st.session_state.get('multiselect_tipo_orden', [])
+                    s_tcn = st.session_state.get('multiselect_tecnologia', [])
+                    s_man = st.session_state.get('multiselect_tipo_manual', [])
 
-                    # 3. TIPO DE ORDEN (Depende de Ciudad y Técnico)
-                    df_domain_tipo_orden = apply_filter(df_options_source, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
-                    df_domain_tipo_orden = apply_filter(df_domain_tipo_orden, COL_FILTRO_TECNICO, filtro_tecnico_actual)
-                    opciones_tipo_orden = get_multiselect_options(df_domain_tipo_orden, COL_FILTRO_TIPO_ORDEN) 
+                    # 1. OPCIONES CIUDAD (Filtradas por: Técnico, Estado, Tipo Orden, Tecnología, Manual)
+                    df_c = apply_filter(df_base_fecha, COL_FILTRO_TECNICO, s_tec)
+                    df_c = apply_filter(df_c, COL_FILTRO_ESTADO, s_est)
+                    df_c = apply_filter(df_c, COL_FILTRO_TIPO_ORDEN, s_tip)
+                    df_c = apply_filter(df_c, COL_FILTRO_TECNOLOGIA, s_tcn)
+                    df_c = apply_filter(df_c, COL_FILTRO_TIPO_MANUAL, s_man)
+                    opciones_ciudad = get_multiselect_options(df_c, COL_FILTRO_CIUDAD)
 
-                    # 4. ESTADO 
-                    df_domain_est = apply_filter(df_options_source, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
-                    df_domain_est = apply_filter(df_domain_est, COL_FILTRO_TECNICO, filtro_tecnico_actual)
-                    opciones_estado = get_multiselect_options(df_domain_est, COL_FILTRO_ESTADO)
+                    # 2. OPCIONES TÉCNICO (Filtradas por: Ciudad, Estado, Tipo Orden, Tecnología, Manual)
+                    df_t = apply_filter(df_base_fecha, COL_FILTRO_CIUDAD, s_ciu)
+                    df_t = apply_filter(df_t, COL_FILTRO_ESTADO, s_est)
+                    df_t = apply_filter(df_t, COL_FILTRO_TIPO_ORDEN, s_tip)
+                    df_t = apply_filter(df_t, COL_FILTRO_TECNOLOGIA, s_tcn)
+                    df_t = apply_filter(df_t, COL_FILTRO_TIPO_MANUAL, s_man)
+                    opciones_tecnico = get_multiselect_options(df_t, COL_FILTRO_TECNICO)
 
-                    # 5. TECNOLOGÍA 
-                    df_domain_tecnologia = apply_filter(df_options_source, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
-                    df_domain_tecnologia = apply_filter(df_domain_tecnologia, COL_FILTRO_TECNICO, filtro_tecnico_actual)
-                    opciones_tecnologia = get_multiselect_options(df_domain_tecnologia, COL_FILTRO_TECNOLOGIA) 
-                    
-                    # 6. TIPO MANUAL
-                    df_domain_tipo_manual = apply_filter(df_options_source, COL_FILTRO_CIUDAD, filtro_ciudad_actual)
-                    df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_TECNICO, filtro_tecnico_actual)
-                    opciones_tipo_manual = get_multiselect_options(df_domain_tipo_manual, COL_FILTRO_TIPO_MANUAL)
-                    
-                    # WIDGETS
+                    # 3. OPCIONES ESTADO (Filtradas por: Ciudad, Técnico, Tipo Orden, Tecnología, Manual)
+                    df_e = apply_filter(df_base_fecha, COL_FILTRO_CIUDAD, s_ciu)
+                    df_e = apply_filter(df_e, COL_FILTRO_TECNICO, s_tec)
+                    df_e = apply_filter(df_e, COL_FILTRO_TIPO_ORDEN, s_tip)
+                    df_e = apply_filter(df_e, COL_FILTRO_TECNOLOGIA, s_tcn)
+                    df_e = apply_filter(df_e, COL_FILTRO_TIPO_MANUAL, s_man)
+                    opciones_estado = get_multiselect_options(df_e, COL_FILTRO_ESTADO)
+
+                    # 4. OPCIONES TIPO ORDEN (Filtradas por: Ciudad, Técnico, Estado, Tecnología, Manual)
+                    df_o = apply_filter(df_base_fecha, COL_FILTRO_CIUDAD, s_ciu)
+                    df_o = apply_filter(df_o, COL_FILTRO_TECNICO, s_tec)
+                    df_o = apply_filter(df_o, COL_FILTRO_ESTADO, s_est)
+                    df_o = apply_filter(df_o, COL_FILTRO_TECNOLOGIA, s_tcn)
+                    df_o = apply_filter(df_o, COL_FILTRO_TIPO_MANUAL, s_man)
+                    opciones_tipo_orden = get_multiselect_options(df_o, COL_FILTRO_TIPO_ORDEN)
+
+                    # 5. OPCIONES TECNOLOGÍA (Filtradas por: Ciudad, Técnico, Estado, Tipo Orden, Manual)
+                    df_te = apply_filter(df_base_fecha, COL_FILTRO_CIUDAD, s_ciu)
+                    df_te = apply_filter(df_te, COL_FILTRO_TECNICO, s_tec)
+                    df_te = apply_filter(df_te, COL_FILTRO_ESTADO, s_est)
+                    df_te = apply_filter(df_te, COL_FILTRO_TIPO_ORDEN, s_tip)
+                    df_te = apply_filter(df_te, COL_FILTRO_TIPO_MANUAL, s_man)
+                    opciones_tecnologia = get_multiselect_options(df_te, COL_FILTRO_TECNOLOGIA)
+
+                    # 6. OPCIONES TIPO MANUAL (Filtradas por: Ciudad, Técnico, Estado, Tipo Orden, Tecnología)
+                    df_m = apply_filter(df_base_fecha, COL_FILTRO_CIUDAD, s_ciu)
+                    df_m = apply_filter(df_m, COL_FILTRO_TECNICO, s_tec)
+                    df_m = apply_filter(df_m, COL_FILTRO_ESTADO, s_est)
+                    df_m = apply_filter(df_m, COL_FILTRO_TIPO_ORDEN, s_tip)
+                    df_m = apply_filter(df_m, COL_FILTRO_TECNOLOGIA, s_tcn)
+                    opciones_tipo_manual = get_multiselect_options(df_m, COL_FILTRO_TIPO_MANUAL)
+
+                    # --- WIDGETS ---
                     with col_ciu:
-                        filtro_ciudad = st.multiselect(f"**{COL_CIUDAD_DESCRIPTIVA}**:", options=opciones_ciudad, default=[], key='multiselect_ubicacion', placeholder="Ciudad")
+                        valid_ciu = [v for v in s_ciu if v in opciones_ciudad]
+                        filtro_ciudad = st.multiselect(f"**{COL_CIUDAD_DESCRIPTIVA}**:", options=opciones_ciudad, default=valid_ciu, key='multiselect_ubicacion', placeholder="Ciudad")
                     with col_tec:
                         filtro_tecnico = st_multiselect_with_all_technicians(col_tec, f"**{COL_TECNICO_DESCRIPTIVA}**", options=opciones_tecnico, key='filter_tecnico')
                     with col_est:
-                        filtro_estado = st.multiselect(f"**{COL_ESTADO_DESCRIPTIVA}**:", options=opciones_estado, default=filtro_estado_actual, key='multiselect_estado', placeholder="Estado")
+                        valid_est = [v for v in s_est if v in opciones_estado]
+                        filtro_estado = st.multiselect(f"**{COL_ESTADO_DESCRIPTIVA}**:", options=opciones_estado, default=valid_est, key='multiselect_estado', placeholder="Estado")
                     with col_tipo_orden:
-                        filtro_tipo_orden = st.multiselect(f"**{COL_TIPO_ORDEN_DESCRIPTIVA}**:", options=opciones_tipo_orden, default=filtro_tipo_orden_actual, key='multiselect_tipo_orden', placeholder="Tipo Orden")
+                        valid_tip = [v for v in s_tip if v in opciones_tipo_orden]
+                        filtro_tipo_orden = st.multiselect(f"**{COL_TIPO_ORDEN_DESCRIPTIVA}**:", options=opciones_tipo_orden, default=valid_tip, key='multiselect_tipo_orden', placeholder="Tipo Orden")
                     with col_tecnologia:
-                        filtro_tecnologia = st.multiselect(f"**{COL_TECNOLOGIA_DESCRIPTIVA}**:", options=opciones_tecnologia, default=filtro_tecnologia_actual, key='multiselect_tecnologia', placeholder="Tecnología")
+                        valid_tcn = [v for v in s_tcn if v in opciones_tecnologia]
+                        filtro_tecnologia = st.multiselect(f"**{COL_TECNOLOGIA_DESCRIPTIVA}**:", options=opciones_tecnologia, default=valid_tcn, key='multiselect_tecnologia', placeholder="Tecnología")
                     with col_tipo_manual:
                         if 'TAREA MANUAL' in filtro_tipo_orden:
-                                df_domain_tipo_manual = apply_filter(df_domain_tipo_manual, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden_actual) 
-                                opciones_tipo_manual = get_multiselect_options(df_domain_tipo_manual, COL_FILTRO_TIPO_MANUAL)
-                                filtro_tipo_manual = st.multiselect(f"**{COL_TIPO_MANUAL_DESCRIPTIVA}**:", options=opciones_tipo_manual, default=st.session_state.get('multiselect_tipo_manual', []), key='multiselect_tipo_manual', placeholder="Sub-tipo Manual")
+                            valid_man = [v for v in s_man if v in opciones_tipo_manual]
+                            filtro_tipo_manual = st.multiselect(f"**{COL_TIPO_MANUAL_DESCRIPTIVA}**:", options=opciones_tipo_manual, default=valid_man, key='multiselect_tipo_manual', placeholder="Sub-tipo Manual")
                         else:
                             filtro_tipo_manual = [] 
                             st.markdown(f"<p style='margin-top:2.2rem; font-size: 0.9rem; color: #a0a0a0;'>{COL_TIPO_MANUAL_DESCRIPTIVA}</p>", unsafe_allow_html=True)
 
-                    # --- APLICACIÓN FINAL DE FILTROS A LOS DATOS (INCLUYENDO LA FECHA AQUÍ) ---
-                    # 1. Aplicamos Fecha
-                    df_final = datos_base_limpia[
-                        (datos_base_limpia[COL_TEMP_DATETIME] >= filtro_inicio) & 
-                        (datos_base_limpia[COL_TEMP_DATETIME] <= filtro_fin)
-                    ].copy()
-                    
-                    # 2. Aplicamos resto de filtros
+                    # --- APLICACIÓN FINAL DE FILTROS A LOS DATOS ---
+                    df_final = df_base_fecha.copy()
                     df_final = apply_filter(df_final, COL_FILTRO_CIUDAD, filtro_ciudad) 
                     df_final = apply_filter(df_final, COL_FILTRO_TECNICO, filtro_tecnico) 
                     df_final = apply_filter(df_final, COL_FILTRO_ESTADO, filtro_estado) 
-                    if COL_FILTRO_TIPO_ORDEN: df_final = apply_filter(df_final, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden) 
-                    if COL_FILTRO_TECNOLOGIA: df_final = apply_filter(df_final, COL_FILTRO_TECNOLOGIA, filtro_tecnologia) 
-                    if COL_FILTRO_TIPO_MANUAL and filtro_tipo_manual: df_final = apply_filter(df_final, COL_FILTRO_TIPO_MANUAL, filtro_tipo_manual) 
+                    df_final = apply_filter(df_final, COL_FILTRO_TIPO_ORDEN, filtro_tipo_orden) 
+                    df_final = apply_filter(df_final, COL_FILTRO_TECNOLOGIA, filtro_tecnologia) 
+                    if filtro_tipo_manual: 
+                        df_final = apply_filter(df_final, COL_FILTRO_TIPO_MANUAL, filtro_tipo_manual) 
                     
                     datos_filtrados = df_final 
 
@@ -699,7 +730,7 @@ else:
 
                     # Export
                     excel_buffer = io.BytesIO()
-                    df_final.rename(columns=FINAL_RENAMING_MAP).to_excel(excel_buffer, index=False)
+                    datos_filtrados.rename(columns=FINAL_RENAMING_MAP).to_excel(excel_buffer, index=False)
                     excel_buffer.seek(0)
                     st.download_button(label="⬇️ Excel Filtrado", data=excel_buffer, file_name='data.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', use_container_width=True)
 
