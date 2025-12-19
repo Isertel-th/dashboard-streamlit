@@ -120,7 +120,7 @@ def clean_ciudad(ciudad):
     if isinstance(ciudad, str) and ',' in ciudad: return ciudad.split(',', 1)[0].strip() 
     return str(ciudad).strip()
 
-# --- FUNCIONES DE COMPARACIÓN Y GRÁFICOS --- 
+# --- FUNCIONES DE COMPARACIÓN Y GRÁFICOS (MODO ESTANDAR) --- 
 @st.cache_data 
 def prepare_comparison_data(df): 
     # Agrupación por CIUDAD y TÉCNICO
@@ -778,18 +778,93 @@ else:
 
                     # *** RENDIMIENTO DINÁMICO ***
                     st.markdown("---") 
-                    st.markdown(f"### 📈 Rendimiento Detallado (Base: {estado_base.title()})")
-                    with st.container(border=True): 
-                        if len(filtro_tecnico) == 1:
-                            df_comparacion_view = prepare_date_comparison_data(datos_filtrados) 
-                            x_col, title, is_city_view = '_FECHA_DIA_', f"por Día: **{filtro_tecnico[0]}**", False
-                        elif len(filtro_tecnico) > 1:
-                            df_comparacion_view = prepare_technician_comparison_data(datos_filtrados) 
-                            x_col, title, is_city_view = COL_FILTRO_TECNICO, "por Técnico", False 
-                        else:
-                            df_comparacion_view = prepare_city_comparison_data(datos_filtrados) 
-                            x_col, title, is_city_view = COL_FILTRO_CIUDAD, "por Ubicación", True
+                    
+                    # Detectar si hay filtros específicos que requieran una vista de detalle único
+                    filtros_especificos_activos = (len(filtro_tipo_orden) > 0) or (len(filtro_tecnologia) > 0) or (len(filtro_tipo_manual) > 0)
+
+                    if filtros_especificos_activos:
+                        # --- MODO DETALLE: GRÁFICO ÚNICO ---
+                        # Construir título dinámico
+                        partes_titulo = []
+                        if filtro_tipo_orden: partes_titulo.append(f"Orden: {', '.join(filtro_tipo_orden)}")
+                        if filtro_tecnologia: partes_titulo.append(f"Tech: {', '.join(filtro_tecnologia)}")
+                        if filtro_tipo_manual: partes_titulo.append(f"Manual: {', '.join(filtro_tipo_manual)}")
+                        titulo_grafico = " + ".join(partes_titulo) if partes_titulo else "Filtros Seleccionados"
                         
-                        if not df_comparacion_view.empty: 
-                            render_comparison_charts_vertical(df_comparacion_view, x_col, title, is_city_view) 
-                        else: st.info("No hay datos de rendimiento.")
+                        st.markdown(f"### 📈 Rendimiento Filtrado: **{titulo_grafico}**")
+                        
+                        with st.container(border=True):
+                            if datos_filtrados.empty:
+                                st.info("No hay datos para los filtros seleccionados.")
+                            else:
+                                # Determinar eje X (Agrupación)
+                                if len(filtro_tecnico) == 1:
+                                    # 1 Técnico -> Ver evolución por FECHA
+                                    group_col = '_FECHA_DIA_'
+                                    label_x = "Fecha"
+                                    # Asegurar columna fecha día en datos filtrados para agrupar
+                                    datos_filtrados['_FECHA_DIA_'] = datos_filtrados[COL_TEMP_DATETIME].dt.date
+                                    es_temporal = True
+                                elif len(filtro_tecnico) > 1:
+                                    # Varios Técnicos (o Todos) -> Comparar TÉCNICOS
+                                    group_col = COL_FILTRO_TECNICO
+                                    label_x = "Técnico"
+                                    es_temporal = False
+                                else:
+                                    # Ningún técnico seleccionado (por defecto todos, pero suele caer en Ciudad)
+                                    # Si hay varias ciudades, agrupar por ciudad, sino por técnico
+                                    if len(filtro_ciudad) > 1:
+                                        group_col = COL_FILTRO_CIUDAD
+                                        label_x = "Ubicación"
+                                    else:
+                                        group_col = COL_FILTRO_TECNICO
+                                        label_x = "Técnico"
+                                    es_temporal = False
+
+                                # Agrupar y Contar
+                                df_unico = datos_filtrados.groupby(group_col).size().reset_index(name='Total_Tareas')
+                                
+                                # Ordenar
+                                if not es_temporal:
+                                    df_unico = df_unico.sort_values(by='Total_Tareas', ascending=False)
+                                else:
+                                    df_unico = df_unico.sort_values(by=group_col, ascending=True)
+
+                                # Renderizar Gráfico Único
+                                height_u = 300
+                                color_u = '#2196F3' # Azul estándar para el gráfico único
+                                
+                                if es_temporal:
+                                    fig_u = px.line(df_unico, x=group_col, y='Total_Tareas', markers=True, text='Total_Tareas', height=height_u, color_discrete_sequence=[color_u])
+                                else:
+                                    # Usar Barras para comparación entre técnicos/ciudades (es más claro para volúmenes)
+                                    fig_u = px.bar(df_unico, x=group_col, y='Total_Tareas', text='Total_Tareas', height=height_u, color_discrete_sequence=[color_u])
+                                
+                                fig_u.update_traces(textposition='outside' if not es_temporal else 'top center')
+                                fig_u.update_layout(
+                                    title=f"Total de trabajos ({titulo_grafico}) por {label_x}",
+                                    xaxis_title=None,
+                                    yaxis_title='Total',
+                                    margin=dict(t=40, b=60, l=20, r=20),
+                                    xaxis={'tickangle': -45}
+                                )
+                                fig_u.update_yaxes(showgrid=True, gridcolor='#eeeeee')
+                                st.plotly_chart(fig_u, use_container_width=True)
+
+                    else:
+                        # --- MODO ESTÁNDAR: 5 GRÁFICOS (Instalación, Visita, etc.) ---
+                        st.markdown(f"### 📈 Rendimiento Detallado (Base: {estado_base.title()})")
+                        with st.container(border=True): 
+                            if len(filtro_tecnico) == 1:
+                                df_comparacion_view = prepare_date_comparison_data(datos_filtrados) 
+                                x_col, title, is_city_view = '_FECHA_DIA_', f"por Día: **{filtro_tecnico[0]}**", False
+                            elif len(filtro_tecnico) > 1:
+                                df_comparacion_view = prepare_technician_comparison_data(datos_filtrados) 
+                                x_col, title, is_city_view = COL_FILTRO_TECNICO, "por Técnico", False 
+                            else:
+                                df_comparacion_view = prepare_city_comparison_data(datos_filtrados) 
+                                x_col, title, is_city_view = COL_FILTRO_CIUDAD, "por Ubicación", True
+                            
+                            if not df_comparacion_view.empty: 
+                                render_comparison_charts_vertical(df_comparacion_view, x_col, title, is_city_view) 
+                            else: st.info("No hay datos de rendimiento.")
