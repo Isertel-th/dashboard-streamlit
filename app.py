@@ -228,23 +228,48 @@ def prepare_technician_comparison_data(df):
 
     return df_grouped.sort_values(by=COL_FILTRO_TECNICO)
 
+# --- FUNCIÓN CORREGIDA (FIX PARA SESSION_STATE) ---
 def st_multiselect_with_all_technicians(col, label, options, key):
     ALL_OPTION = "✨ Seleccionar Todos"
-    display_options = [ALL_OPTION] + options
+    SUP_OPTION = "👷 Seleccionar Supervisores"
     
-    # Asegurarse de que el valor actual en session_state sea válido para las nuevas opciones
-    current_selection = st.session_state.get(key, [])
-    valid_selection = [v for v in current_selection if v in display_options]
+    # 1. Verificar existencia de supervisores en las opciones FILTRADAS
+    hay_supervisores = any(str(opt).strip().upper().startswith("SUP. ") for opt in options)
     
+    # 2. Construir lista de visualización
+    display_options = [ALL_OPTION]
+    if hay_supervisores:
+        display_options.append(SUP_OPTION)
+    display_options += options
+
+    # 3. Callback interno para manejar la lógica ANTES de que el widget termine de renderizarse
+    def on_change_handler():
+        current_selection = st.session_state[key]
+        if SUP_OPTION in current_selection:
+            # Calcular INTERSECCIÓN: Solo los supervisores que ESTÁN en las opciones disponibles
+            valid_supervisors = [opt for opt in options if str(opt).strip().upper().startswith("SUP. ")]
+            st.session_state[key] = valid_supervisors
+        elif ALL_OPTION in current_selection:
+            st.session_state[key] = options
+
     with col:
         if not options:
             st.markdown(f"**{label}**")
             st.info("No hay técnicos disponibles.", icon="🧑‍🔧")
             return []
-        selected = st.multiselect(label=label, options=display_options, key=key, default=valid_selection)
-    
-    if ALL_OPTION in selected: return options
-    else: return [s for s in selected if s != ALL_OPTION]
+        
+        # 4. Renderizar widget con callback
+        st.multiselect(
+            label=label, 
+            options=display_options, 
+            key=key, 
+            on_change=on_change_handler # <--- AQUÍ ESTÁ LA SOLUCIÓN
+        )
+
+    # 5. Devolver selección limpia para el resto del script
+    # Se obtienen los datos directamente del session state ya actualizado por el callback
+    final_selection = st.session_state.get(key, [])
+    return [s for s in final_selection if s not in (ALL_OPTION, SUP_OPTION)]
 
 @st.cache_data
 def prepare_date_comparison_data(df):
