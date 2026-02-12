@@ -553,8 +553,19 @@ else:
                 # --- PANEL DE CONTROL: FILTROS (Lógica de Filtro Cruzado / Cross-Filtering) --- 
                 # -----------------------------------------------------------------------------
                 with st.container(border=True):
-                    st.markdown("#### ⚙️ Filtros de Segmentación") 
-                    
+                    # --- HEADER FILTROS Y BOTÓN LIMPIAR ---
+                    col_header_filtros, col_btn_limpiar = st.columns([6, 1])
+                    with col_header_filtros:
+                        st.markdown("#### ⚙️ Filtros de Segmentación") 
+                    with col_btn_limpiar:
+                         if st.button("🧹 Limpiar Filtros", use_container_width=True):
+                            keys_to_clear = ['multiselect_ubicacion', 'filter_tecnico', 'multiselect_estado', 
+                                             'multiselect_tipo_orden', 'multiselect_tecnologia', 'multiselect_tipo_manual']
+                            for k in keys_to_clear:
+                                if k in st.session_state:
+                                    st.session_state[k] = []
+                            st.rerun()
+
                     col_desde, col_hasta, col_ciu, col_tec, col_est, col_tipo_orden, col_tecnologia, col_tipo_manual = st.columns(
                         [1.0, 1.0, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3] 
                     )
@@ -639,24 +650,47 @@ else:
                     opciones_tipo_manual = get_multiselect_options(df_m, COL_FILTRO_TIPO_MANUAL)
 
                     # --- WIDGETS ---
+                    # NOTA: Para preservar los filtros al cambiar las fechas, primero calculamos la intersección
+                    # entre lo seleccionado anteriormente y las nuevas opciones disponibles, y luego
+                    # FORZAMOS esa selección en st.session_state antes de renderizar el widget.
+                    
                     with col_ciu:
                         valid_ciu = [v for v in s_ciu if v in opciones_ciudad]
-                        filtro_ciudad = st.multiselect(f"**{COL_CIUDAD_DESCRIPTIVA}**:", options=opciones_ciudad, default=valid_ciu, key='multiselect_ubicacion', placeholder="Ciudad")
+                        if 'multiselect_ubicacion' not in st.session_state: st.session_state['multiselect_ubicacion'] = []
+                        st.session_state['multiselect_ubicacion'] = valid_ciu
+                        filtro_ciudad = st.multiselect(f"**{COL_CIUDAD_DESCRIPTIVA}**:", options=opciones_ciudad, key='multiselect_ubicacion', placeholder="Ciudad")
+                    
                     with col_tec:
+                        # Para técnicos, la función custom maneja sus propias opciones, pero nos aseguramos de limpiar selección inválida
+                        valid_tec = [v for v in s_tec if v in opciones_tecnico or v in ["✨ Seleccionar Todos", "👷 Seleccionar Supervisores"]]
+                        if 'filter_tecnico' not in st.session_state: st.session_state['filter_tecnico'] = []
+                        st.session_state['filter_tecnico'] = valid_tec
                         filtro_tecnico = st_multiselect_with_all_technicians(col_tec, f"**{COL_TECNICO_DESCRIPTIVA}**", options=opciones_tecnico, key='filter_tecnico')
+                    
                     with col_est:
                         valid_est = [v for v in s_est if v in opciones_estado]
-                        filtro_estado = st.multiselect(f"**{COL_ESTADO_DESCRIPTIVA}**:", options=opciones_estado, default=valid_est, key='multiselect_estado', placeholder="Estado")
+                        if 'multiselect_estado' not in st.session_state: st.session_state['multiselect_estado'] = []
+                        st.session_state['multiselect_estado'] = valid_est
+                        filtro_estado = st.multiselect(f"**{COL_ESTADO_DESCRIPTIVA}**:", options=opciones_estado, key='multiselect_estado', placeholder="Estado")
+                    
                     with col_tipo_orden:
                         valid_tip = [v for v in s_tip if v in opciones_tipo_orden]
-                        filtro_tipo_orden = st.multiselect(f"**{COL_TIPO_ORDEN_DESCRIPTIVA}**:", options=opciones_tipo_orden, default=valid_tip, key='multiselect_tipo_orden', placeholder="Tipo Orden")
+                        if 'multiselect_tipo_orden' not in st.session_state: st.session_state['multiselect_tipo_orden'] = []
+                        st.session_state['multiselect_tipo_orden'] = valid_tip
+                        filtro_tipo_orden = st.multiselect(f"**{COL_TIPO_ORDEN_DESCRIPTIVA}**:", options=opciones_tipo_orden, key='multiselect_tipo_orden', placeholder="Tipo Orden")
+                    
                     with col_tecnologia:
                         valid_tcn = [v for v in s_tcn if v in opciones_tecnologia]
-                        filtro_tecnologia = st.multiselect(f"**{COL_TECNOLOGIA_DESCRIPTIVA}**:", options=opciones_tecnologia, default=valid_tcn, key='multiselect_tecnologia', placeholder="Tecnología")
+                        if 'multiselect_tecnologia' not in st.session_state: st.session_state['multiselect_tecnologia'] = []
+                        st.session_state['multiselect_tecnologia'] = valid_tcn
+                        filtro_tecnologia = st.multiselect(f"**{COL_TECNOLOGIA_DESCRIPTIVA}**:", options=opciones_tecnologia, key='multiselect_tecnologia', placeholder="Tecnología")
+                    
                     with col_tipo_manual:
                         if 'TAREA MANUAL' in filtro_tipo_orden:
                             valid_man = [v for v in s_man if v in opciones_tipo_manual]
-                            filtro_tipo_manual = st.multiselect(f"**{COL_TIPO_MANUAL_DESCRIPTIVA}**:", options=opciones_tipo_manual, default=valid_man, key='multiselect_tipo_manual', placeholder="Sub-tipo Manual")
+                            if 'multiselect_tipo_manual' not in st.session_state: st.session_state['multiselect_tipo_manual'] = []
+                            st.session_state['multiselect_tipo_manual'] = valid_man
+                            filtro_tipo_manual = st.multiselect(f"**{COL_TIPO_MANUAL_DESCRIPTIVA}**:", options=opciones_tipo_manual, key='multiselect_tipo_manual', placeholder="Sub-tipo Manual")
                         else:
                             filtro_tipo_manual = [] 
                             st.markdown(f"<p style='margin-top:2.2rem; font-size: 0.9rem; color: #a0a0a0;'>{COL_TIPO_MANUAL_DESCRIPTIVA}</p>", unsafe_allow_html=True)
