@@ -104,6 +104,7 @@ COL_TIPO_VISITA = '_ES_VISITA_'
 COL_TIPO_MIGRACION = '_ES_MIGRACION_'
 COL_TIPO_MANUAL = '_ES_TAREA_MANUAL_'
 COL_TIPO_CAMBIO_DIR = '_ES_CAMBIO_DIRECCION_'
+COL_TIPO_MIGRATEC = '_ES_MIGRATEC_'
 
 
 # --- FUNCIONES DE LIMPIEZA --- 
@@ -139,9 +140,10 @@ def prepare_comparison_data(df):
         df_temp[COL_TIPO_MIGRACION] = (mask_mig_orden | mask_mig_manual).astype(int)
         df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
         df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        df_temp[COL_TIPO_MIGRATEC] = tipo_orden.str.contains('MIGRATEC', case=False, na=False).astype(int)
     else: 
         df_temp[COL_TIPO_INST] = 0; df_temp[COL_TIPO_VISITA] = 0; df_temp[COL_TIPO_MIGRACION] = 0
-        df_temp[COL_TIPO_MANUAL] = 0; df_temp[COL_TIPO_CAMBIO_DIR] = 0
+        df_temp[COL_TIPO_MANUAL] = 0; df_temp[COL_TIPO_CAMBIO_DIR] = 0; df_temp[COL_TIPO_MIGRATEC] = 0
 
     if COL_FILTRO_TECNICO not in df_temp.columns or COL_FILTRO_CIUDAD not in df_temp.columns: return pd.DataFrame()
 
@@ -151,11 +153,12 @@ def prepare_comparison_data(df):
         Total_Migracion=(COL_TIPO_MIGRACION, 'sum'),
         Total_TareaManual=(COL_TIPO_MANUAL, 'sum'),
         Total_CambioDireccion=(COL_TIPO_CAMBIO_DIR, 'sum'),
+        Total_MigraTec=(COL_TIPO_MIGRATEC, 'sum'),
         Total_Tareas=(COL_TIPO_INST, 'count')
     ).reset_index()
 
     # Convertir a int
-    cols_int = ['Total_Instalaciones','Total_Visitas','Total_Migracion','Total_TareaManual','Total_CambioDireccion','Total_Tareas']
+    cols_int = ['Total_Instalaciones','Total_Visitas','Total_Migracion','Total_TareaManual','Total_CambioDireccion','Total_MigraTec','Total_Tareas']
     for c in cols_int: df_grouped[c] = df_grouped[c].astype(int)
 
     return df_grouped.sort_values(by=COL_FILTRO_TECNICO)
@@ -175,9 +178,10 @@ def prepare_city_comparison_data(df):
         df_temp[COL_TIPO_MIGRACION] = (mask_mig_orden | mask_mig_manual).astype(int)
         df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
         df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        df_temp[COL_TIPO_MIGRATEC] = tipo_orden.str.contains('MIGRATEC', case=False, na=False).astype(int)
     else: 
         df_temp[COL_TIPO_INST] = 0; df_temp[COL_TIPO_VISITA] = 0; df_temp[COL_TIPO_MIGRACION] = 0
-        df_temp[COL_TIPO_MANUAL] = 0; df_temp[COL_TIPO_CAMBIO_DIR] = 0
+        df_temp[COL_TIPO_MANUAL] = 0; df_temp[COL_TIPO_CAMBIO_DIR] = 0; df_temp[COL_TIPO_MIGRATEC] = 0
 
     if COL_FILTRO_CIUDAD not in df_temp.columns: return pd.DataFrame()
 
@@ -187,9 +191,10 @@ def prepare_city_comparison_data(df):
         Total_Migracion=(COL_TIPO_MIGRACION, 'sum'),
         Total_TareaManual=(COL_TIPO_MANUAL, 'sum'),
         Total_CambioDireccion=(COL_TIPO_CAMBIO_DIR, 'sum'),
+        Total_MigraTec=(COL_TIPO_MIGRATEC, 'sum'),
     ).reset_index()
 
-    cols_int = ['Total_Instalaciones','Total_Visitas','Total_Migracion','Total_TareaManual','Total_CambioDireccion']
+    cols_int = ['Total_Instalaciones','Total_Visitas','Total_Migracion','Total_TareaManual','Total_CambioDireccion','Total_MigraTec']
     for c in cols_int: df_grouped[c] = df_grouped[c].astype(int)
 
     return df_grouped.sort_values(by=COL_FILTRO_CIUDAD)
@@ -209,9 +214,10 @@ def prepare_technician_comparison_data(df):
         df_temp[COL_TIPO_MIGRACION] = (mask_mig_orden | mask_mig_manual).astype(int)
         df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
         df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        df_temp[COL_TIPO_MIGRATEC] = tipo_orden.str.contains('MIGRATEC', case=False, na=False).astype(int)
     else: 
         df_temp[COL_TIPO_INST] = 0; df_temp[COL_TIPO_VISITA] = 0; df_temp[COL_TIPO_MIGRACION] = 0
-        df_temp[COL_TIPO_MANUAL] = 0; df_temp[COL_TIPO_CAMBIO_DIR] = 0
+        df_temp[COL_TIPO_MANUAL] = 0; df_temp[COL_TIPO_CAMBIO_DIR] = 0; df_temp[COL_TIPO_MIGRATEC] = 0
 
     if COL_FILTRO_TECNICO not in df_temp.columns: return pd.DataFrame()
 
@@ -221,9 +227,10 @@ def prepare_technician_comparison_data(df):
         Total_Migracion=(COL_TIPO_MIGRACION, 'sum'),
         Total_TareaManual=(COL_TIPO_MANUAL, 'sum'),
         Total_CambioDireccion=(COL_TIPO_CAMBIO_DIR, 'sum'),
+        Total_MigraTec=(COL_TIPO_MIGRATEC, 'sum'),
     ).reset_index()
 
-    cols_int = ['Total_Instalaciones','Total_Visitas','Total_Migracion','Total_TareaManual','Total_CambioDireccion']
+    cols_int = ['Total_Instalaciones','Total_Visitas','Total_Migracion','Total_TareaManual','Total_CambioDireccion','Total_MigraTec']
     for c in cols_int: df_grouped[c] = df_grouped[c].astype(int)
 
     return df_grouped.sort_values(by=COL_FILTRO_TECNICO)
@@ -289,9 +296,10 @@ def prepare_date_comparison_data(df):
         df_temp[COL_TIPO_MIGRACION] = (mask_mig_orden | mask_mig_manual).astype(int)
         df_temp[COL_TIPO_MANUAL] = tipo_orden.str.contains('TAREA MANUAL', case=False, na=False).astype(int)
         df_temp[COL_TIPO_CAMBIO_DIR] = tipo_orden.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True).astype(int)
+        df_temp[COL_TIPO_MIGRATEC] = tipo_orden.str.contains('MIGRATEC', case=False, na=False).astype(int)
     else: 
         df_temp[COL_TIPO_INST] = 0; df_temp[COL_TIPO_VISITA] = 0; df_temp[COL_TIPO_MIGRACION] = 0 
-        df_temp[COL_TIPO_MANUAL] = 0; df_temp[COL_TIPO_CAMBIO_DIR] = 0
+        df_temp[COL_TIPO_MANUAL] = 0; df_temp[COL_TIPO_CAMBIO_DIR] = 0; df_temp[COL_TIPO_MIGRATEC] = 0
 
     df_grouped = df_temp.groupby([COL_FECHA_DIA_AGRUPACION]).agg( 
         Total_Instalaciones=(COL_TIPO_INST, 'sum'), 
@@ -299,9 +307,10 @@ def prepare_date_comparison_data(df):
         Total_Migracion=(COL_TIPO_MIGRACION, 'sum'),
         Total_TareaManual=(COL_TIPO_MANUAL, 'sum'),
         Total_CambioDireccion=(COL_TIPO_CAMBIO_DIR, 'sum'),
+        Total_MigraTec=(COL_TIPO_MIGRATEC, 'sum'),
     ).reset_index()
 
-    cols_int = ['Total_Instalaciones','Total_Visitas','Total_Migracion','Total_TareaManual','Total_CambioDireccion']
+    cols_int = ['Total_Instalaciones','Total_Visitas','Total_Migracion','Total_TareaManual','Total_CambioDireccion','Total_MigraTec']
     for c in cols_int: df_grouped[c] = df_grouped[c].astype(int)
     return df_grouped.sort_values(by=COL_FECHA_DIA_AGRUPACION)
 
@@ -311,7 +320,8 @@ def render_comparison_charts_vertical(df_comparacion, x_col, title_prefix, is_ci
         {'col_name': 'Total_Visitas', 'title': 'Visitas', 'color': '#FF9800'},
         {'col_name': 'Total_Migracion', 'title': 'Migración', 'color': '#2196F3'},
         {'col_name': 'Total_TareaManual', 'title': 'Tarea Manual', 'color': '#9C27B0'},
-        {'col_name': 'Total_CambioDireccion', 'title': 'Cambio de Dirección', 'color': '#F44336'}
+        {'col_name': 'Total_CambioDireccion', 'title': 'Cambio de Dirección', 'color': '#F44336'},
+        {'col_name': 'Total_MigraTec', 'title': 'MigraTec', 'color': '#00BCD4'}
     ]
 
     st.markdown(f"#### Rendimiento {title_prefix} (Base Dinámica)")
@@ -453,7 +463,7 @@ else:
                 'ID_TAREA': [101, 102, 103, 104, 105, 106, 107, 108, 109, 110] * 10,
                 'TECNOLOGIA_COL': ['ADSL', 'ADSL', 'HFC', 'HFC', 'GPON', 'GPON', 'ADSL', 'HFC', 'GPON', 'ADSL'] * 10,
                 'ESTADO': ['SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA'] * 10,
-                'TIPO_ORDEN': ['INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL', 'CAMBIO DE DIRECCIÓN', 'OTRO TIPO', 'INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL'] * 10,
+                'TIPO_ORDEN': ['INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL', 'CAMBIO DE DIRECCIÓN', 'MIGRATEC', 'INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL'] * 10,
                 'UBICACION': ['Bogotá, 123', 'Bogotá, 456', 'Cali, 123', 'Cali, 456', 'Bogotá, 789', 'Medellín, 123', 'Medellín, 456', 'Medellín, 789', 'Cali, 789', 'Bogotá, 123'] * 10,
                 'TECNICO': ['T|Juan Pérez (tecnico)', 'T|Juan Pérez (tecnico)', 'T|Pedro López (tecnico)', 'T|Pedro López', 'T|Ana Gómez (tecnico)', 'T|Ana Gómez', 'T|Juan Pérez (tecnico)', 'T|Juan Pérez', 'T|Pedro López (tecnico)', 'T|Ana Gómez (tecnico)'] * 10,
                 'CONTRATO': ['C1']*100,
@@ -712,7 +722,7 @@ else:
                 # -----------------------------------------------------------------------------
                 with st.container(border=True):
                     st.markdown("#### 🎯 Métricas Clave (KPIs)") 
-                    col_m_sat_abs, col_m_inst_abs, col_m_vis_abs, col_m_mig_abs, col_m_man_abs, col_m_cd_abs = st.columns([1,1,1,1,1,1])
+                    col_m_sat_abs, col_m_inst_abs, col_m_vis_abs, col_m_mig_abs, col_m_man_abs, col_m_cd_abs, col_m_migratec_abs = st.columns([1,1,1,1,1,1,1])
 
                     if len(filtro_estado) == 1:
                         estado_base = filtro_estado[0]
@@ -740,9 +750,10 @@ else:
                         total_migracion = len(datos_base_metricas[mask_migracion_orden | mask_migracion_manual])
                         total_tarea_manual = len(datos_base_metricas[tipo_orden_base.str.contains('TAREA MANUAL', case=False, na=False)])
                         total_cambio_direccion = len(datos_base_metricas[tipo_orden_base.str.contains(r'CAMBIO DE DIRECCI[ÓO]N', case=False, na=False, regex=True)])
+                        total_migratec = len(datos_base_metricas[tipo_orden_base.str.contains('MIGRATEC', case=False, na=False)])
                     else: 
                         total_instalaciones = 0; total_visitas_tecnicas = 0; total_migracion = 0 
-                        total_tarea_manual = 0; total_cambio_direccion = 0 
+                        total_tarea_manual = 0; total_cambio_direccion = 0; total_migratec = 0
                     
                     def metric_card(col, label, val, is_total=False):
                         css_class = "metric-compact-container-total" if is_total else "metric-compact-container"
@@ -757,6 +768,7 @@ else:
                     metric_card(col_m_mig_abs, f"Migra.{etiqueta_estado}", total_migracion)
                     metric_card(col_m_man_abs, f"Manual{etiqueta_estado}", total_tarea_manual)
                     metric_card(col_m_cd_abs, f"Cam.Dir.{etiqueta_estado}", total_cambio_direccion)
+                    metric_card(col_m_migratec_abs, f"MigraTec{etiqueta_estado}", total_migratec)
                         
                 st.markdown("---")
                 datos_filtrados = datos_base_metricas.copy() 
@@ -911,7 +923,7 @@ else:
                                 st.plotly_chart(fig_u, use_container_width=True)
 
                     else:
-                        # --- MODO ESTÁNDAR: 5 GRÁFICOS (Instalación, Visita, etc.) ---
+                        # --- MODO ESTÁNDAR: 6 GRÁFICOS (Instalación, Visita, etc.) ---
                         st.markdown(f"### 📈 Rendimiento Detallado (Base: {estado_base.title()})")
                         with st.container(border=True): 
                             if len(filtro_tecnico) == 1:
