@@ -939,3 +939,44 @@ else:
                             if not df_comparacion_view.empty: 
                                 render_comparison_charts_vertical(df_comparacion_view, x_col, title, is_city_view) 
                             else: st.info("No hay datos de rendimiento.")
+
+                    # =====================================================================
+                    # --- NUEVA FUNCIÓN: GRÁFICO "Rango Fecha-Tipo de Orden" ---
+                    # =====================================================================
+                    
+                    # 1. Comprobar si el usuario eligió un rango personalizado (distinto al min/max predeterminado)
+                    rango_modificado = (date_from != min_date_global.date()) or (date_to != max_date_global.date())
+                    # 2. Comprobar si eligió al menos un "Tipo de Orden"
+                    tiene_tipo_orden = len(filtro_tipo_orden) > 0
+
+                    if rango_modificado and tiene_tipo_orden:
+                        st.markdown("### 📈 Rango Fecha-Tipo de Orden")
+                        with st.container(border=True):
+                            df_rango = datos_filtrados.copy()
+                            if not df_rango.empty:
+                                # Asegurar la columna de fecha por día
+                                df_rango['_FECHA_DIA_'] = df_rango[COL_TEMP_DATETIME].dt.date
+                                # Agrupar cantidades por día
+                                conteo_rango = df_rango.groupby('_FECHA_DIA_').size().reset_index(name='Total')
+                                conteo_rango = conteo_rango.sort_values(by='_FECHA_DIA_')
+                                
+                                # Renderizar gráfico de barras
+                                fig_rango = px.bar(
+                                    conteo_rango, 
+                                    x='_FECHA_DIA_', 
+                                    y='Total', 
+                                    text='Total',
+                                    color='_FECHA_DIA_', # Cada día tendrá un color distinto para fácil lectura
+                                    color_discrete_sequence=px.colors.qualitative.Pastel
+                                )
+                                fig_rango.update_traces(textposition='outside')
+                                fig_rango.update_layout(
+                                    showlegend=False,
+                                    xaxis_title="Días (Rango Seleccionado)",
+                                    yaxis_title="Cantidad",
+                                    margin=dict(t=20, b=40, l=20, r=20),
+                                    xaxis={'tickangle': -45, 'type': 'category'} # Obliga a que sean barras categóricas día a día
+                                )
+                                st.plotly_chart(fig_rango, use_container_width=True)
+                            else:
+                                st.info("No hay datos para esta combinación.")
