@@ -61,9 +61,19 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # 1. DEFINICIÓN FINAL DEL MAPEO 
 MAPEO_COLUMNAS = { 
-    'FECHA': 'A', 'UBICACIÓN': 'B', 'TÉCNICO': 'C', 'CONTRATO': 'D', 'CLIENTE': 'E', 
-    'TECNOLOGÍA': 'F', 'TAREA': 'G', 'ESTADO TAREA': 'H', 'TIPO DE ORDEN': 'I', 'TIPO TAREA MANUAL':'J',
-    'CUENTA': 'K', 'MOTIVO DE INGRESO': 'L', 'SOLUCIÓN': 'M' # <-- NUEVAS
+    'FECHA': 'A', 
+    'UBICACIÓN': 'B', 
+    'TÉCNICO': 'C', 
+    'CONTRATO': 'D', 
+    'CUENTA': 'E', 
+    'MOTIVO DE INGRESO': 'F', 
+    'CLIENTE': 'G', 
+    'TECNOLOGÍA': 'H', 
+    'TAREA': 'I', 
+    'ESTADO TAREA': 'J', 
+    'SOLUCIÓN': 'K', 
+    'TIPO DE ORDEN': 'L', 
+    'TIPO TAREA MANUAL': 'M'
 }
 COLUMNAS_SELECCIONADAS = list(MAPEO_COLUMNAS.values()) 
 ENCABEZADOS_ESPERADOS = list(MAPEO_COLUMNAS.keys())
@@ -71,31 +81,32 @@ FINAL_RENAMING_MAP = {v: k for k, v in MAPEO_COLUMNAS.items()}
 
 # CLAVES DE COLUMNA
 COL_FECHA_KEY = 'A' 
-COL_TECNICO_KEY = 'C' 
 COL_CIUDAD_KEY = 'B' 
-COL_TIPO_ORDEN_KEY = 'I'
-COL_ESTADO_KEY = 'H' 
+COL_TECNICO_KEY = 'C' 
 COL_CONTRATO_KEY = 'D'
-COL_CLIENTE_KEY = 'E'
-COL_TAREA_KEY = 'G'
-COL_TECNOLOGIA_KEY = 'F'
-COL_TIPO_MANUAL_KEY = 'J'
-COL_CUENTA_KEY = 'K'
-COL_MOTIVO_KEY = 'L'
-COL_SOLUCION_KEY = 'M'
+COL_CUENTA_KEY = 'E'
+COL_MOTIVO_KEY = 'F'
+COL_CLIENTE_KEY = 'G'
+COL_TECNOLOGIA_KEY = 'H'
+COL_TAREA_KEY = 'I'
+COL_ESTADO_KEY = 'J' 
+COL_SOLUCION_KEY = 'K'
+COL_TIPO_ORDEN_KEY = 'L'
+COL_TIPO_MANUAL_KEY = 'M'
 
+# DESCRIPCIONES DE COLUMNAS
 COL_FECHA_DESCRIPTIVA = FINAL_RENAMING_MAP[COL_FECHA_KEY] 
-COL_TEMP_DATETIME = '_DATETIME_' + COL_FECHA_KEY 
+COL_TEMP_DATETIME = '_DATETIME_' + COL_FECHA_KEY
 
 COL_TECNICO_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TECNICO_KEY, 'TÉCNICO') 
 COL_CIUDAD_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_CIUDAD_KEY, 'UBICACIÓN') 
-COL_TIPO_ORDEN_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_ORDEN_KEY, 'TIPO DE ORDEN')
-COL_ESTADO_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_ESTADO_KEY, 'ESTADO TAREA')
-COL_TECNOLOGIA_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TECNOLOGIA_KEY, 'TECNOLOGÍA')
-COL_TIPO_MANUAL_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_MANUAL_KEY, 'TIPO TAREA MANUAL')
 COL_CUENTA_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_CUENTA_KEY, 'CUENTA')
 COL_MOTIVO_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_MOTIVO_KEY, 'MOTIVO DE INGRESO')
+COL_TECNOLOGIA_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TECNOLOGIA_KEY, 'TECNOLOGÍA')
+COL_ESTADO_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_ESTADO_KEY, 'ESTADO TAREA')
 COL_SOLUCION_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_SOLUCION_KEY, 'SOLUCIÓN')
+COL_TIPO_ORDEN_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_ORDEN_KEY, 'TIPO DE ORDEN')
+COL_TIPO_MANUAL_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_MANUAL_KEY, 'TIPO TAREA MANUAL')
 
 # Columnas temporales para filtros
 COL_FILTRO_TECNICO = '_Filtro_Tecnico_' 
@@ -465,30 +476,40 @@ else:
             columnas_existentes = [col for col in COLUMNAS_SELECCIONADAS if col in datos.columns] 
             datos = datos[columnas_existentes] 
         except: 
-            # 💥 DATOS DE PRUEBA 💥
+# 💥 DATOS DE PRUEBA 💥
             data = { 
-                'ID_TAREA': [101, 102, 103, 104, 105, 106, 107, 108, 109, 110] * 10,
-                'TECNOLOGIA_COL': ['ADSL', 'ADSL', 'HFC', 'HFC', 'GPON', 'GPON', 'ADSL', 'HFC', 'GPON', 'ADSL'] * 10,
-                'ESTADO': ['SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA'] * 10,
-                'TIPO_ORDEN': ['INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL', 'CAMBIO DE DIRECCIÓN', 'MIGRATEC', 'INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL'] * 10,
+                'FECHA': pd.to_datetime([f'2025-10-{d:02d}' for d in range(1, 11)] * 10),
                 'UBICACION': ['Bogotá, 123', 'Bogotá, 456', 'Cali, 123', 'Cali, 456', 'Bogotá, 789', 'Medellín, 123', 'Medellín, 456', 'Medellín, 789', 'Cali, 789', 'Bogotá, 123'] * 10,
                 'TECNICO': ['T|Juan Pérez (tecnico)', 'T|Juan Pérez (tecnico)', 'T|Pedro López (tecnico)', 'T|Pedro López', 'T|Ana Gómez (tecnico)', 'T|Ana Gómez', 'T|Juan Pérez (tecnico)', 'T|Juan Pérez', 'T|Pedro López (tecnico)', 'T|Ana Gómez (tecnico)'] * 10,
                 'CONTRATO': ['C1']*100,
+                'CUENTA': [f'CTA-{i:03d}' for i in range(100)],
+                'MOTIVO': ['Falla línea', 'Lentitud', 'Sin tono', 'Instalación', 'Traslado', 'Mantenimiento', 'Corte', 'Revisión', 'Configuración', 'Otro'] * 10,
                 'CLIENTE': ['Cliente A']*100,
-                'FECHA': pd.to_datetime([f'2025-10-{d:02d}' for d in range(1, 11)] * 10),
-                'TIPO_TAREA_MANUAL': ['N/A', 'N/A', 'N/A', 'Auditoría', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'Retorno'] * 10,
-                'CUENTA': [f'CTA-{i:03d}' for i in range(100)], # <-- NUEVO
-                'MOTIVO': ['Falla línea', 'Lentitud', 'Sin tono', 'Instalación', 'Traslado', 'Mantenimiento', 'Corte', 'Revisión', 'Configuración', 'Otro'] * 10, # <-- NUEVO
-                'SOLUCION': ['Reinicio', 'Cambio conector', 'Actualización perfil', 'Cableado', 'Reconfiguración', 'Sin acción', 'Reparación', 'Cambio módem', 'Pruebas OK', 'Sustitución'] * 10 # <-- NUEVO
+                'TECNOLOGIA_COL': ['ADSL', 'ADSL', 'HFC', 'HFC', 'GPON', 'GPON', 'ADSL', 'HFC', 'GPON', 'ADSL'] * 10,
+                'ID_TAREA': [101, 102, 103, 104, 105, 106, 107, 108, 109, 110] * 10,
+                'ESTADO': ['SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA', 'Pendiente', 'INSATISFACTORIA', 'SATISFACTORIA'] * 10,
+                'SOLUCION': ['Reinicio', 'Cambio conector', 'Actualización perfil', 'Cableado', 'Reconfiguración', 'Sin acción', 'Reparación', 'Cambio módem', 'Pruebas OK', 'Sustitución'] * 10,
+                'TIPO_ORDEN': ['INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL', 'CAMBIO DE DIRECCIÓN', 'MIGRATEC', 'INSTALACION', 'VISITA TECNICA', 'MIGRACIÓN', 'TAREA MANUAL'] * 10,
+                'TIPO_TAREA_MANUAL': ['N/A', 'N/A', 'N/A', 'Auditoría', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'Retorno'] * 10
             } 
             datos = pd.DataFrame(data) 
             RENAME_DUMMY = {
-                'FECHA': 'A', 'UBICACION': 'B', 'TECNICO': 'C', 'CONTRATO': 'D', 'CLIENTE': 'E', 
-                'TECNOLOGIA_COL': 'F', 'ID_TAREA': 'G', 'ESTADO': 'H', 'TIPO_ORDEN': 'I', 'TIPO_TAREA_MANUAL': 'J',
-                'CUENTA': 'K', 'MOTIVO': 'L', 'SOLUCION': 'M' # <-- NUEVO
+                'FECHA': 'A', 
+                'UBICACION': 'B', 
+                'TECNICO': 'C', 
+                'CONTRATO': 'D', 
+                'CUENTA': 'E', 
+                'MOTIVO': 'F', 
+                'CLIENTE': 'G', 
+                'TECNOLOGIA_COL': 'H', 
+                'ID_TAREA': 'I', 
+                'ESTADO': 'J', 
+                'SOLUCION': 'K', 
+                'TIPO_ORDEN': 'L', 
+                'TIPO_TAREA_MANUAL': 'M'
             }
             datos = datos.rename(columns=RENAME_DUMMY)
-            datos.columns = COLUMNAS_SELECCIONADAS 
+            datos.columns = COLUMNAS_SELECCIONADAS
     if not archivos_para_combinar_nombres: st.warning("Usando **Datos de Prueba**.")
 
     # --- TABS --- 
