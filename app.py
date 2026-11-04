@@ -62,11 +62,12 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # 1. DEFINICIÓN FINAL DEL MAPEO 
 MAPEO_COLUMNAS = { 
     'FECHA': 'A', 'UBICACIÓN': 'B', 'TÉCNICO': 'C', 'CONTRATO': 'D', 'CLIENTE': 'E', 
-    'TECNOLOGÍA': 'F', 'TAREA': 'G', 'ESTADO TAREA': 'H', 'TIPO DE ORDEN': 'I', 'TIPO TAREA MANUAL':'J'
+    'TECNOLOGÍA': 'F', 'TAREA': 'G', 'ESTADO TAREA': 'H', 'TIPO DE ORDEN': 'I', 'TIPO TAREA MANUAL':'J',
+    'CUENTA': 'K', 'MOTIVO DE INGRESO': 'L', 'SOLUCIÓN': 'M' # <-- NUEVAS
 }
 COLUMNAS_SELECCIONADAS = list(MAPEO_COLUMNAS.values()) 
 ENCABEZADOS_ESPERADOS = list(MAPEO_COLUMNAS.keys())
-FINAL_RENAMING_MAP = {v: k for k, v in MAPEO_COLUMNAS.items()} 
+FINAL_RENAMING_MAP = {v: k for k, v in MAPEO_COLUMNAS.items()}
 
 # CLAVES DE COLUMNA
 COL_FECHA_KEY = 'A' 
@@ -79,6 +80,9 @@ COL_CLIENTE_KEY = 'E'
 COL_TAREA_KEY = 'G'
 COL_TECNOLOGIA_KEY = 'F'
 COL_TIPO_MANUAL_KEY = 'J'
+COL_CUENTA_KEY = 'K'
+COL_MOTIVO_KEY = 'L'
+COL_SOLUCION_KEY = 'M'
 
 COL_FECHA_DESCRIPTIVA = FINAL_RENAMING_MAP[COL_FECHA_KEY] 
 COL_TEMP_DATETIME = '_DATETIME_' + COL_FECHA_KEY 
@@ -89,6 +93,9 @@ COL_TIPO_ORDEN_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_ORDEN_KEY, 'TIPO DE
 COL_ESTADO_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_ESTADO_KEY, 'ESTADO TAREA')
 COL_TECNOLOGIA_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TECNOLOGIA_KEY, 'TECNOLOGÍA')
 COL_TIPO_MANUAL_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_TIPO_MANUAL_KEY, 'TIPO TAREA MANUAL')
+COL_CUENTA_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_CUENTA_KEY, 'CUENTA')
+COL_MOTIVO_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_MOTIVO_KEY, 'MOTIVO DE INGRESO')
+COL_SOLUCION_DESCRIPTIVA = FINAL_RENAMING_MAP.get(COL_SOLUCION_KEY, 'SOLUCIÓN')
 
 # Columnas temporales para filtros
 COL_FILTRO_TECNICO = '_Filtro_Tecnico_' 
@@ -469,12 +476,16 @@ else:
                 'CONTRATO': ['C1']*100,
                 'CLIENTE': ['Cliente A']*100,
                 'FECHA': pd.to_datetime([f'2025-10-{d:02d}' for d in range(1, 11)] * 10),
-                'TIPO_TAREA_MANUAL': ['N/A', 'N/A', 'N/A', 'Auditoría', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'Retorno'] * 10
+                'TIPO_TAREA_MANUAL': ['N/A', 'N/A', 'N/A', 'Auditoría', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'Retorno'] * 10,
+                'CUENTA': [f'CTA-{i:03d}' for i in range(100)], # <-- NUEVO
+                'MOTIVO': ['Falla línea', 'Lentitud', 'Sin tono', 'Instalación', 'Traslado', 'Mantenimiento', 'Corte', 'Revisión', 'Configuración', 'Otro'] * 10, # <-- NUEVO
+                'SOLUCION': ['Reinicio', 'Cambio conector', 'Actualización perfil', 'Cableado', 'Reconfiguración', 'Sin acción', 'Reparación', 'Cambio módem', 'Pruebas OK', 'Sustitución'] * 10 # <-- NUEVO
             } 
             datos = pd.DataFrame(data) 
             RENAME_DUMMY = {
                 'FECHA': 'A', 'UBICACION': 'B', 'TECNICO': 'C', 'CONTRATO': 'D', 'CLIENTE': 'E', 
-                'TECNOLOGIA_COL': 'F', 'ID_TAREA': 'G', 'ESTADO': 'H', 'TIPO_ORDEN': 'I', 'TIPO_TAREA_MANUAL': 'J'
+                'TECNOLOGIA_COL': 'F', 'ID_TAREA': 'G', 'ESTADO': 'H', 'TIPO_ORDEN': 'I', 'TIPO_TAREA_MANUAL': 'J',
+                'CUENTA': 'K', 'MOTIVO': 'L', 'SOLUCION': 'M' # <-- NUEVO
             }
             datos = datos.rename(columns=RENAME_DUMMY)
             datos.columns = COLUMNAS_SELECCIONADAS 
